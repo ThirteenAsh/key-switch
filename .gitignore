@@ -6,6 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+plan/
 
 # ===================== 依赖与构建产物 =====================
 node_modules
