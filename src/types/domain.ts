@@ -26,6 +26,7 @@ export interface BuiltinProviderOption {
   abbreviation: string;
   tone: ProviderSummary["tone"];
   logo: string;
+  baseUrl: string;
 }
 
 export interface DashboardSummary {

@@ -49,7 +49,7 @@ export const useDashboardStore = defineStore("dashboard", () => {
     return true;
   }
 
-  function addCustomProvider(name: string, baseUrl: string) {
+  function addCustomProvider(name: string, baseUrl: string, logo?: string) {
     const normalizedName = name.trim();
     if (!normalizedName || providers.value.some((provider) => provider.name === normalizedName)) return false;
 
@@ -61,9 +61,23 @@ export const useDashboardStore = defineStore("dashboard", () => {
       tone: "gray",
       kind: "custom",
       baseUrl: baseUrl.trim() || undefined,
+      logo,
       keys: [],
     });
     expandedProviderId.value = id;
+    return true;
+  }
+
+  function updateProviderConfiguration(providerId: string, name: string, baseUrl: string) {
+    const provider = providers.value.find((item) => item.id === providerId);
+    const normalizedName = name.trim();
+    const normalizedBaseUrl = baseUrl.trim();
+    if (!provider || !normalizedName || !normalizedBaseUrl) return false;
+
+    if (providers.value.some((item) => item.id !== providerId && item.name === normalizedName)) return false;
+
+    provider.name = normalizedName;
+    provider.baseUrl = normalizedBaseUrl;
     return true;
   }
 
@@ -76,6 +90,7 @@ export const useDashboardStore = defineStore("dashboard", () => {
     toggleProvider,
     reorderProviders,
     addBuiltinProvider,
-    addCustomProvider
+    addCustomProvider,
+    updateProviderConfiguration,
   };
 });

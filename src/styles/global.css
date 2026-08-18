@@ -96,6 +96,22 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   margin-bottom: 18px;
 }
 
+/* 首页和供应商页的标题栏在内容滚动时始终保持可见。 */
+.dashboard-view,
+.providers-view {
+  padding-top: 0;
+}
+
+.dashboard-view .view-toolbar,
+.providers-view .view-toolbar {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  margin-bottom: 8px;
+  padding: 24px 0 14px;
+  background: #f8fafc;
+}
+
 .view-toolbar h1 {
   margin: 0;
   font-size: 22px;

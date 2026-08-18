@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type { ProviderSummary } from "../types/domain";
 
-defineProps<{ provider: Pick<ProviderSummary, "name" | "abbreviation" | "tone" | "logo"> }>();
+defineProps<{ provider: Pick<ProviderSummary, "name" | "abbreviation" | "tone" | "logo" | "kind"> }>();
 </script>
 
 <template>
   <span class="provider-avatar" :class="`provider-avatar--${provider.tone}`">
-    <img v-if="provider.logo" :src="provider.logo" :alt="`${provider.name} 图标`" />
+    <img v-if="provider.logo" :class="{ 'provider-avatar__custom-image': provider.kind === 'custom' }" :src="provider.logo" :alt="`${provider.name} 图标`" />
     <span v-else class="provider-abbr">{{ provider.abbreviation }}</span>
   </span>
 </template>
@@ -34,6 +34,14 @@ defineProps<{ provider: Pick<ProviderSummary, "name" | "abbreviation" | "tone" |
   object-fit: contain;
   display: block;
   margin: auto;
+}
+
+.provider-avatar img.provider-avatar__custom-image {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
 }
 
 .provider-abbr {

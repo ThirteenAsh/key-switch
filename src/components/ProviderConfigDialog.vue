@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { Check, Plus, X } from "@lucide/vue";
+import { Check, ImagePlus, Plus, Trash2, X } from "@lucide/vue";
 import AppButton from "./ui/AppButton.vue";
 import { builtinProviderCatalog } from "../data/providerCatalog";
 
@@ -12,13 +12,15 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   addBuiltin: [providerId: string];
-  addCustom: [name: string, baseUrl: string];
+  addCustom: [name: string, baseUrl: string, logo?: string];
 }>();
 
 const mode = ref<"builtin" | "custom">("builtin");
 const selectedProviderId = ref("");
 const customName = ref("");
 const customBaseUrl = ref("");
+const customLogo = ref("");
+const avatarInput = ref<HTMLInputElement | null>(null);
 const error = ref("");
 
 const availableProviders = computed(() => builtinProviderCatalog.map((provider) => ({
@@ -32,6 +34,8 @@ watch(() => props.open, (isOpen) => {
   selectedProviderId.value = "";
   customName.value = "";
   customBaseUrl.value = "";
+  customLogo.value = "";
+  if (avatarInput.value) avatarInput.value.value = "";
   mode.value = "builtin";
 });
 
@@ -49,7 +53,43 @@ function submitCustom() {
     error.value = "请输入供应商名称";
     return;
   }
-  emit("addCustom", name, customBaseUrl.value.trim());
+  emit("addCustom", name, customBaseUrl.value.trim(), customLogo.value || undefined);
+}
+
+function selectAvatar() {
+  avatarInput.value?.click();
+}
+
+function handleAvatarChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    error.value = "头像仅支持 PNG、JPG 或 WebP 图片";
+    input.value = "";
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    error.value = "头像图片不能超过 2MB";
+    input.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    customLogo.value = typeof reader.result === "string" ? reader.result : "";
+    error.value = "";
+  };
+  reader.onerror = () => {
+    error.value = "读取头像失败，请重新选择图片";
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeAvatar() {
+  customLogo.value = "";
+  if (avatarInput.value) avatarInput.value.value = "";
 }
 </script>
 
@@ -118,6 +158,25 @@ function submitCustom() {
               </div>
 
               <div v-else key="custom" class="tab-pane custom-provider-form">
+                <div class="custom-avatar-field">
+                  <div class="form-label-row">
+                    <span>供应商头像</span>
+                    <span class="form-optional">可选</span>
+                  </div>
+                  <div class="custom-avatar-picker">
+                    <img v-if="customLogo" :src="customLogo" alt="已选择的供应商头像" />
+                    <ImagePlus v-else :size="20" :stroke-width="1.8" aria-hidden="true" />
+                    <input ref="avatarInput" class="custom-avatar-file" type="file" accept="image/png,image/jpeg,image/webp" @change="handleAvatarChange" />
+                    <AppButton variant="secondary" size="sm" type="button" @click="selectAvatar">
+                      <ImagePlus :size="13" :stroke-width="2" />
+                      <span>{{ customLogo ? "更换图片" : "上传图片" }}</span>
+                    </AppButton>
+                    <AppButton v-if="customLogo" variant="ghost" size="icon-sm" type="button" aria-label="移除头像" @click="removeAvatar">
+                      <Trash2 :size="14" :stroke-width="2" />
+                    </AppButton>
+                    <small>PNG、JPG、WebP，最大 2MB</small>
+                  </div>
+                </div>
                 <div class="form-group">
                   <div class="form-label-row">
                     <label for="custom-name">供应商名称</label>
@@ -270,9 +329,9 @@ function submitCustom() {
 /* 核心内容区容器：严格锁定宽高，防止过渡期间产生高度塌陷抖动 */
 .dialog-body {
   width: 100%;
-  height: 240px;
-  min-height: 240px;
-  max-height: 240px;
+  height: 280px;
+  min-height: 280px;
+  max-height: 280px;
   margin: 16px 0 10px;
   position: relative;
   overflow: hidden;
@@ -400,10 +459,53 @@ function submitCustom() {
 .custom-provider-form {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 18px;
+  justify-content: flex-start;
+  gap: 14px;
   height: 100%;
   padding: 0 4px;
+}
+
+.custom-avatar-field {
+  display: grid;
+  gap: 7px;
+}
+
+.custom-avatar-field > .form-label-row > span:first-child {
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.custom-avatar-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.custom-avatar-picker > img,
+.custom-avatar-picker > svg {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+  object-fit: cover;
+}
+
+.custom-avatar-file {
+  display: none;
+}
+
+.custom-avatar-picker small {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .form-group {

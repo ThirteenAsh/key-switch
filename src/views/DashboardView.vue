@@ -428,23 +428,7 @@ function getCardTransform(index: number): { transform: string } {
 }
 
 function getProviderEndpoint(provider: ProviderSummary): string {
-  if (provider.baseUrl) return provider.baseUrl;
-  const endpointMap: Record<string, string> = {
-    openai: "https://api.openai.com/v1",
-    deepseek: "https://platform.deepseek.com",
-    claude: "https://www.anthropic.com/claude-code",
-    gemini: "https://generativelanguage.googleapis.com",
-    grok: "https://x.ai/grok",
-    kimi: "https://api.moonshot.cn/v1",
-    minimax: "https://api.minimax.chat/v1",
-    qwen: "https://dashscope.aliyuncs.com",
-    zhipu: "https://open.bigmodel.cn/api/paas/v4",
-    doubao: "https://ark.cn-beijing.volces.com/api/v3",
-    aistudio: "https://aistudio.google.com",
-    anthropic: "https://api.anthropic.com",
-    opencode: "https://opencode.ai/api"
-  };
-  return endpointMap[provider.id] || "https://api.custom-endpoint.com/v1";
+  return provider.baseUrl || "未配置 Base URL";
 }
 
 function getAvailableCount(provider: ProviderSummary): number {
@@ -460,8 +444,8 @@ function addBuiltinProvider(providerId: string) {
   notify("已新增供应商配置");
 }
 
-function addCustomProvider(name: string, baseUrl: string) {
-  if (!store.addCustomProvider(name, baseUrl)) {
+function addCustomProvider(name: string, baseUrl: string, logo?: string) {
+  if (!store.addCustomProvider(name, baseUrl, logo)) {
     notify("供应商名称已存在");
     return;
   }
@@ -540,9 +524,10 @@ function addCustomProvider(name: string, baseUrl: string) {
                     {{ provider.kind === 'builtin' ? '官方' : '自定义' }}
                   </span>
                 </div>
-                <a :href="getProviderEndpoint(provider)" target="_blank" class="provider-endpoint-link" @click.stop>
+                <a v-if="provider.baseUrl" :href="provider.baseUrl" target="_blank" rel="noreferrer" class="provider-endpoint-link" @click.stop>
                   {{ getProviderEndpoint(provider) }}
                 </a>
+                <span v-else class="provider-endpoint-link provider-endpoint-link--empty">{{ getProviderEndpoint(provider) }}</span>
               </div>
             </div>
 
