@@ -1,12 +1,12 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
-import { mockProviders } from "../data/mock";
+import { builtinProviderCatalog } from "../data/providerCatalog";
 import type { ProviderSummary } from "../types/domain";
 
 export const useDashboardStore = defineStore("dashboard", () => {
-  const providers = ref<ProviderSummary[]>(mockProviders);
+  const providers = ref<ProviderSummary[]>([]);
   const query = ref("");
-  const expandedProviderId = ref("openai");
+  const expandedProviderId = ref("");
 
   const filteredProviders = computed(() => {
     const keyword = query.value.trim().toLocaleLowerCase();
@@ -31,5 +31,51 @@ export const useDashboardStore = defineStore("dashboard", () => {
     expandedProviderId.value = expandedProviderId.value === providerId ? "" : providerId;
   }
 
-  return { providers, query, filteredProviders, summary, expandedProviderId, toggleProvider };
+  function reorderProviders(fromIndex: number, toIndex: number) {
+    if (fromIndex < 0 || fromIndex >= providers.value.length) return;
+    if (toIndex < 0 || toIndex >= providers.value.length) return;
+    if (fromIndex === toIndex) return;
+
+    const [moved] = providers.value.splice(fromIndex, 1);
+    providers.value.splice(toIndex, 0, moved);
+  }
+
+  function addBuiltinProvider(providerId: string) {
+    const provider = builtinProviderCatalog.find((item) => item.id === providerId);
+    if (!provider || providers.value.some((item) => item.id === provider.id)) return false;
+
+    providers.value.push({ ...provider, kind: "builtin", keys: [] });
+    expandedProviderId.value = provider.id;
+    return true;
+  }
+
+  function addCustomProvider(name: string, baseUrl: string) {
+    const normalizedName = name.trim();
+    if (!normalizedName || providers.value.some((provider) => provider.name === normalizedName)) return false;
+
+    const id = `custom-${crypto.randomUUID()}`;
+    providers.value.push({
+      id,
+      name: normalizedName,
+      abbreviation: normalizedName.slice(0, 2).toUpperCase(),
+      tone: "gray",
+      kind: "custom",
+      baseUrl: baseUrl.trim() || undefined,
+      keys: [],
+    });
+    expandedProviderId.value = id;
+    return true;
+  }
+
+  return {
+    providers,
+    query,
+    filteredProviders,
+    summary,
+    expandedProviderId,
+    toggleProvider,
+    reorderProviders,
+    addBuiltinProvider,
+    addCustomProvider
+  };
 });
