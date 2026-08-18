@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "key-switch",
+  "productName": "Key Switch",
   "version": "0.1.0",
   "identifier": "com.app.key-switch",
   "build": {
@@ -12,9 +12,12 @@
   "app": {
     "windows": [
       {
-        "title": "key-switch",
-        "width": 800,
-        "height": 600
+        "title": "API Key 管理器",
+        "width": 900,
+        "height": 650,
+        "minWidth": 760,
+        "minHeight": 520,
+        "decorations": true
       }
     ],
     "security": {

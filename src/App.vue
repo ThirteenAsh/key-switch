@@ -1,19 +1,39 @@
 <template>
-  <main />
+  <div class="app-shell">
+    <div class="app-body">
+      <AppSidebar />
+      <main class="page-content">
+        <RouterView v-slot="{ Component, route }">
+          <Transition name="page-fade" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </Transition>
+        </RouterView>
+      </main>
+    </div>
+    <AppFooter />
+  </div>
 </template>
 
-<style>
-:root {
-  font-family: Arial, sans-serif;
-  color: #0f0f0f;
-  background: #f6f6f6;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+<script setup lang="ts">
+import AppFooter from "./components/AppFooter.vue";
+import AppSidebar from "./components/AppSidebar.vue";
+</script>
+
+<style scoped>
+/* 页面级轻快丝滑过渡动画（0.15s） */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.15s ease-out,
+              transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-body {
-  margin: 0;
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>
