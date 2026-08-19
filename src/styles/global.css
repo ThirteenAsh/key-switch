@@ -46,7 +46,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .app-body {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  /* 默认窗口较窄，侧栏只保留导航所需宽度，把空间留给 Key 表格。 */
+  grid-template-columns: 172px minmax(0, 1fr);
   min-height: 0;
   background: #f8fafc;
 }
@@ -370,13 +371,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 34px;
+  height: 34px;
   color: #94a3b8;
   background: transparent;
   border: none;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 8px;
   transition: color 0.15s ease, background 0.15s ease;
 }
 
@@ -452,9 +453,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: rgba(15, 23, 42, 0.03);
 }
 
-.key-table th:nth-child(1) { width: 24%; }
-.key-table th:nth-child(2) { width: 38%; }
-.key-table th:nth-child(3) { width: 22%; }
+.key-table th:nth-child(1) { width: 21%; }
+.key-table th:nth-child(2) { width: 43%; }
+.key-table th:nth-child(3) { width: 20%; }
 .key-table th:nth-child(4) { width: 16%; text-align: right; }
 .key-table td:nth-child(4) { text-align: right; }
 
@@ -462,6 +463,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .masked-key code {
@@ -473,6 +475,10 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   padding: 2px 7px;
   border-radius: 5px;
   letter-spacing: 0.03em;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .key-disclosure {
@@ -629,6 +635,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  min-height: 92px;
 }
 
 .settings-heading {
@@ -670,19 +677,21 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border-radius: 6px;
 }
 
-.settings-pending {
-  padding: 3px 8px;
-  color: #64748b;
-  font-size: 11px;
-  white-space: nowrap;
-  border-radius: 6px;
-  background: rgba(15, 23, 42, 0.05);
+.settings-github-icon {
+  width: 19px;
+  height: 19px;
+  margin-top: 2px;
 }
 
-.settings-version {
-  margin: 18px 0 0;
-  color: #94a3b8;
-  font-size: 12px;
+.settings-version-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button-github-icon {
+  width: 14px;
+  height: 14px;
 }
 
 /* 底部状态条 */
@@ -737,7 +746,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 /* 响应式 */
 @media (max-width: 860px) {
   .app-body {
-    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-columns: 156px minmax(0, 1fr);
   }
   .search-field {
     width: 200px;

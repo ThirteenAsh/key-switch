@@ -8,6 +8,7 @@
   "permissions": [
     "core:default",
     "opener:allow-open-url",
-    "opener:allow-default-urls"
+    "opener:allow-default-urls",
+    "clipboard-manager:allow-write-text"
   ]
 }

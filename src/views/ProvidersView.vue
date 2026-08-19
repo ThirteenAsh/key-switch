@@ -19,8 +19,8 @@ function openProviderConfiguration(provider: ProviderSummary) {
   editDialogOpen.value = true;
 }
 
-function addCustomProvider(payload: { name: string; platformUrl: string; logo?: string }) {
-  if (!store.addCustomProvider(payload.name, payload.platformUrl, payload.logo)) {
+async function addCustomProvider(payload: { name: string; platformUrl: string; logo?: string }) {
+  if (!await store.addCustomProvider(payload.name, payload.platformUrl, payload.logo)) {
     notice.value = "新增失败：供应商名称已存在";
     return;
   }
@@ -32,8 +32,8 @@ function addCustomProvider(payload: { name: string; platformUrl: string; logo?: 
   }, 2800);
 }
 
-function saveProviderConfiguration(payload: { id: string; name: string; platformUrl: string }) {
-  if (!store.updateProviderConfiguration(payload.id, payload.name, payload.platformUrl)) {
+async function saveProviderConfiguration(payload: { id: string; name: string; platformUrl: string }) {
+  if (!await store.updateProviderConfiguration(payload.id, payload.name, payload.platformUrl)) {
     notice.value = "保存失败：供应商名称已存在或配置无效";
     return;
   }
