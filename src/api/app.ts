@@ -19,6 +19,7 @@ export const listProviders = () => desktopInvoke<ProviderSummary[]>("list_provid
 export const openDataDirectory = () => desktopInvoke<void>("open_data_directory");
 export const createProvider = (input: Omit<ProviderSummary, "keys">) => desktopInvoke<ProviderSummary>("create_provider", { input });
 export const updateProvider = (input: { id: string; name: string; platformUrl?: string }) => desktopInvoke<ProviderSummary>("update_provider", { input });
+export const deleteProvider = (providerId: string) => desktopInvoke<void>("delete_provider", { providerId });
 export const reorderProviders = (providerIds: string[]) => desktopInvoke<void>("reorder_providers", { providerIds });
 export const createApiKey = (input: { providerId: string; remark: string; value: string }) => desktopInvoke<ApiKeySummary>("create_api_key", { input });
 export const copyApiKey = (keyId: string) => desktopInvoke<void>("copy_api_key", { keyId });

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { Plus, SlidersHorizontal } from "@lucide/vue";
+import { computed, ref } from "vue";
+import { Plus, SlidersHorizontal, Trash2 } from "@lucide/vue";
 import AppButton from "../components/ui/AppButton.vue";
 import ProviderAvatar from "../components/ProviderAvatar.vue";
 import CustomProviderDialog from "../components/CustomProviderDialog.vue";
 import ProviderEditDialog from "../components/ProviderEditDialog.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { useDashboardStore } from "../stores/dashboard";
 import type { ProviderSummary } from "../types/domain";
 
@@ -13,6 +14,14 @@ const selectedProvider = ref<ProviderSummary | null>(null);
 const editDialogOpen = ref(false);
 const customDialogOpen = ref(false);
 const notice = ref("");
+const deleteTarget = ref<ProviderSummary | null>(null);
+const deleteMessage = computed(() => {
+  if (!deleteTarget.value) return "";
+  const count = deleteTarget.value.keys.length;
+  return count > 0
+    ? `确定删除“${deleteTarget.value.name}”吗？该供应商的 ${count} 个 API Key 也会一并删除，此操作无法撤销。`
+    : `确定删除“${deleteTarget.value.name}”吗？此操作无法撤销。`;
+});
 
 function openProviderConfiguration(provider: ProviderSummary) {
   selectedProvider.value = provider;
@@ -44,6 +53,20 @@ async function saveProviderConfiguration(payload: { id: string; name: string; pl
     notice.value = "";
   }, 2800);
 }
+
+async function deleteProvider() {
+  if (!deleteTarget.value) return;
+  const provider = deleteTarget.value;
+  try {
+    await store.removeProvider(provider.id);
+    notice.value = `已删除供应商“${provider.name}”`;
+  } catch {
+    notice.value = "删除供应商失败";
+  } finally {
+    deleteTarget.value = null;
+    window.setTimeout(() => { notice.value = ""; }, 2800);
+  }
+}
 </script>
 
 <template>
@@ -69,10 +92,15 @@ async function saveProviderConfiguration(payload: { id: string; name: string; pl
         </div>
         <div class="provider-card-footer">
           <span>{{ provider.keys.length }} 个 Key</span>
-          <AppButton variant="secondary" size="sm" @click="openProviderConfiguration(provider)">
-            <SlidersHorizontal :size="13" :stroke-width="2" />
-            <span>配置</span>
-          </AppButton>
+          <div class="provider-card-actions">
+            <AppButton variant="secondary" size="sm" @click="openProviderConfiguration(provider)">
+              <SlidersHorizontal :size="13" :stroke-width="2" />
+              <span>配置</span>
+            </AppButton>
+            <AppButton variant="danger" size="icon-sm" title="删除供应商" :aria-label="`删除 ${provider.name}`" @click="deleteTarget = provider">
+              <Trash2 :size="14" :stroke-width="2" />
+            </AppButton>
+          </div>
         </div>
       </article>
     </div>
@@ -84,5 +112,6 @@ async function saveProviderConfiguration(payload: { id: string; name: string; pl
       @save="saveProviderConfiguration"
     />
     <CustomProviderDialog :open="customDialogOpen" @close="customDialogOpen = false" @add="addCustomProvider" />
+    <ConfirmDialog :open="Boolean(deleteTarget)" title="删除供应商" :message="deleteMessage" confirm-label="删除供应商" @close="deleteTarget = null" @confirm="deleteProvider" />
   </section>
 </template>

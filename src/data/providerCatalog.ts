@@ -15,6 +15,7 @@ import opencodeLogo from "../assets/opencode.svg";
 import openRouterLogo from "../assets/openrouter-color.svg";
 import qwenLogo from "../assets/qwen-color.svg";
 import zhipuLogo from "../assets/zhipu-color.svg";
+import xiaomiMimoLogo from "../assets/xiaomimimo.svg";
 import type { BuiltinProviderOption } from "../types/domain";
 
 export const builtinProviderCatalog: BuiltinProviderOption[] = [
@@ -26,6 +27,7 @@ export const builtinProviderCatalog: BuiltinProviderOption[] = [
   { id: "qwen", name: "通义千问", abbreviation: "QW", tone: "indigo", logo: qwenLogo, platformUrl: "https://bailian.console.aliyun.com" },
   { id: "kimi", name: "Kimi", abbreviation: "KM", tone: "blue", logo: kimiLogo, platformUrl: "https://platform.moonshot.cn" },
   { id: "zhipu", name: "智谱 AI", abbreviation: "ZP", tone: "blue", logo: zhipuLogo, platformUrl: "https://open.bigmodel.cn" },
+  { id: "mimo", name: "小米 MiMo", abbreviation: "MM", tone: "orange", logo: xiaomiMimoLogo, platformUrl: "https://platform.xiaomimimo.com" },
   { id: "grok", name: "Grok", abbreviation: "GK", tone: "gray", logo: grokLogo, platformUrl: "https://console.x.ai" },
   { id: "meta", name: "Meta AI", abbreviation: "MT", tone: "blue", logo: metaLogo, platformUrl: "https://llama.developer.meta.com" },
   { id: "openrouter", name: "OpenRouter", abbreviation: "OR", tone: "gray", logo: openRouterLogo, platformUrl: "https://openrouter.ai" },

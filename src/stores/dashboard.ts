@@ -1,7 +1,7 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { builtinProviderCatalog } from "../data/providerCatalog";
-import { checkProviderKeys, createApiKey, createProvider, deleteApiKey, listProviders, reorderProviders, updateProvider } from "../api/app";
+import { checkProviderKeys, createApiKey, createProvider, deleteApiKey, deleteProvider, listProviders, reorderProviders, updateProvider } from "../api/app";
 import type { ProviderSummary } from "../types/domain";
 
 export const useDashboardStore = defineStore("dashboard", () => {
@@ -28,9 +28,10 @@ export const useDashboardStore = defineStore("dashboard", () => {
   async function updateProviderConfiguration(id: string, name: string, platformUrl: string) {
     const updated = await updateProvider({ id, name, platformUrl: platformUrl.trim() || undefined }); const index = providers.value.findIndex((p) => p.id === id); if (index < 0) return false; providers.value[index] = updated; return true;
   }
+  async function removeProvider(providerId: string) { await deleteProvider(providerId); providers.value = providers.value.filter((provider) => provider.id !== providerId); if (expandedProviderId.value === providerId) expandedProviderId.value = ""; }
   function reorderProvidersLocally(from: number, to: number) { const [moved] = providers.value.splice(from, 1); providers.value.splice(to, 0, moved); void reorderProviders(providers.value.map((p) => p.id)); }
   async function addKey(input: { providerId: string; remark: string; value: string }) { const key = await createApiKey(input); const provider = providers.value.find((p) => p.id === input.providerId); if (provider) provider.keys.push(key); }
   async function deleteKey(providerId: string, keyId: string) { await deleteApiKey(keyId); const provider = providers.value.find((p) => p.id === providerId); if (provider) provider.keys = provider.keys.filter((key) => key.id !== keyId); }
   async function checkKeys(providerId: string) { const keys = await checkProviderKeys(providerId); const provider = providers.value.find((p) => p.id === providerId); if (provider) provider.keys = keys; }
-  return { providers, query, filteredProviders, summary, expandedProviderId, toggleProvider, load, addBuiltinProvider, addCustomProvider, updateProviderConfiguration, reorderProviders: reorderProvidersLocally, addKey, deleteKey, checkKeys };
+  return { providers, query, filteredProviders, summary, expandedProviderId, toggleProvider, load, addBuiltinProvider, addCustomProvider, updateProviderConfiguration, removeProvider, reorderProviders: reorderProvidersLocally, addKey, deleteKey, checkKeys };
 });

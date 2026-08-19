@@ -623,6 +623,12 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border-top: 1px solid #e2e8f0;
 }
 
+.provider-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* 设置页面 */
 .settings-stack {
   display: grid;

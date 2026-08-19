@@ -98,6 +98,17 @@ fn update_provider(app: tauri::AppHandle, input: UpdateProviderInput) -> Result<
     let result = summary(provider)?; save_data(&app, &data)?; Ok(result)
 }
 #[tauri::command]
+fn delete_provider(app: tauri::AppHandle, provider_id: String) -> Result<(), String> {
+    let mut data = load_data(&app)?;
+    let provider_index = data.providers.iter().position(|provider| provider.id == provider_id).ok_or("未找到供应商")?;
+    let provider = data.providers[provider_index].clone();
+    for key in &provider.keys {
+        keyring_entry(&key.secret_id)?.delete_credential().map_err(|e| format!("无法从系统密钥库删除 API Key：{e}"))?;
+    }
+    data.providers.remove(provider_index);
+    save_data(&app, &data)
+}
+#[tauri::command]
 fn reorder_providers(app: tauri::AppHandle, provider_ids: Vec<String>) -> Result<(), String> {
     let mut data = load_data(&app)?;
     if provider_ids.len() != data.providers.len() { return Err("供应商排序数据不完整".into()); }
@@ -149,6 +160,6 @@ async fn check_provider_keys(app: tauri::AppHandle, provider_id: String) -> Resu
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default().plugin(tauri_plugin_opener::init()).plugin(tauri_plugin_clipboard_manager::init())
-        .invoke_handler(tauri::generate_handler![get_app_info, open_data_directory, list_providers, create_provider, update_provider, reorder_providers, create_api_key, copy_api_key, delete_api_key, check_provider_keys])
+        .invoke_handler(tauri::generate_handler![get_app_info, open_data_directory, list_providers, create_provider, update_provider, delete_provider, reorder_providers, create_api_key, copy_api_key, delete_api_key, check_provider_keys])
         .run(tauri::generate_context!()).expect("error while running tauri application");
 }
