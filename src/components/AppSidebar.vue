@@ -35,7 +35,7 @@ const navigation = [
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 24px 14px 18px;
+  padding: 24px 10px 18px;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -58,9 +58,9 @@ const navigation = [
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 40px;
-  padding: 0 14px;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
   color: #64748b;
   font-size: 13.5px;
   font-weight: 500;

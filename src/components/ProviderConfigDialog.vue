@@ -12,13 +12,13 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   addBuiltin: [providerId: string];
-  addCustom: [name: string, baseUrl: string, logo?: string];
+  addCustom: [name: string, platformUrl: string, logo?: string];
 }>();
 
 const mode = ref<"builtin" | "custom">("builtin");
 const selectedProviderId = ref("");
 const customName = ref("");
-const customBaseUrl = ref("");
+const customPlatformUrl = ref("");
 const customLogo = ref("");
 const avatarInput = ref<HTMLInputElement | null>(null);
 const error = ref("");
@@ -33,7 +33,7 @@ watch(() => props.open, (isOpen) => {
   error.value = "";
   selectedProviderId.value = "";
   customName.value = "";
-  customBaseUrl.value = "";
+  customPlatformUrl.value = "";
   customLogo.value = "";
   if (avatarInput.value) avatarInput.value.value = "";
   mode.value = "builtin";
@@ -53,7 +53,15 @@ function submitCustom() {
     error.value = "请输入供应商名称";
     return;
   }
-  emit("addCustom", name, customBaseUrl.value.trim(), customLogo.value || undefined);
+  emit("addCustom", name, ensureHttpsPrefix(), customLogo.value || undefined);
+}
+
+function ensureHttpsPrefix() {
+  const value = customPlatformUrl.value.trim();
+  if (value && !/^https?:\/\//i.test(value)) {
+    customPlatformUrl.value = `https://${value}`;
+  }
+  return customPlatformUrl.value.trim();
 }
 
 function selectAvatar() {
@@ -101,7 +109,7 @@ function removeAvatar() {
           <header class="dialog-header">
             <div>
               <h2 id="provider-config-title">新增配置</h2>
-              <p class="dialog-subtitle">选择内置供应商快速接入，或配置自定义 API 端点。</p>
+              <p class="dialog-subtitle">选择内置供应商快速接入，或配置自定义供应商。</p>
             </div>
             <AppButton variant="ghost" size="icon-sm" aria-label="关闭" @click="emit('close')">
               <X :size="15" :stroke-width="2" />
@@ -193,14 +201,16 @@ function removeAvatar() {
 
                 <div class="form-group">
                   <div class="form-label-row">
-                    <label for="custom-url">API 接口基础地址 (Base URL)</label>
+                    <label for="custom-url">平台管理地址</label>
                     <span class="form-optional">可选</span>
                   </div>
                   <input
                     id="custom-url"
-                    v-model="customBaseUrl"
-                    type="url"
-                    placeholder="https://api.openai.com/v1 或内网代理地址"
+                    v-model="customPlatformUrl"
+                    type="text"
+                    inputmode="url"
+                    placeholder="https://platform.example.com"
+                    @blur="ensureHttpsPrefix"
                   />
                 </div>
               </div>
