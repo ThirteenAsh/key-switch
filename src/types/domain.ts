@@ -16,7 +16,7 @@ export interface ProviderSummary {
   tone: "blue" | "violet" | "orange" | "indigo" | "gray";
   logo?: string;
   kind: "builtin" | "custom";
-  baseUrl?: string;
+  platformUrl?: string;
   keys: ApiKeySummary[];
 }
 
@@ -26,7 +26,7 @@ export interface BuiltinProviderOption {
   abbreviation: string;
   tone: ProviderSummary["tone"];
   logo: string;
-  baseUrl: string;
+  platformUrl: string;
 }
 
 export interface DashboardSummary {

@@ -15,8 +15,13 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from "vue";
 import AppFooter from "./components/AppFooter.vue";
 import AppSidebar from "./components/AppSidebar.vue";
+import { useDashboardStore } from "./stores/dashboard";
+
+const store = useDashboardStore();
+onMounted(() => { void store.load(); });
 </script>
 
 <style scoped>

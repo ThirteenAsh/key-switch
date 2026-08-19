@@ -4,8 +4,8 @@ import {
   ChevronDown,
   ChevronRight,
   Clipboard,
+  Trash2,
   Check,
-  Eye,
   Info,
   KeyRound,
   Cpu,
@@ -15,11 +15,15 @@ import {
   GripVertical,
   RefreshCw
 } from "@lucide/vue";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import AppButton from "../components/ui/AppButton.vue";
 import ProviderAvatar from "../components/ProviderAvatar.vue";
 import ProviderConfigDialog from "../components/ProviderConfigDialog.vue";
+import ApiKeyDialog from "../components/ApiKeyDialog.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { useDashboardStore } from "../stores/dashboard";
+import { copyApiKey } from "../api/app";
 import type { ProviderSummary } from "../types/domain";
 
 const store = useDashboardStore();
@@ -27,6 +31,8 @@ const notice = ref("");
 const configDialogOpen = ref(false);
 const copiedKeyId = ref<string | null>(null);
 const checkingProviderId = ref<string | null>(null);
+const keyDialogProvider = ref<ProviderSummary | null>(null);
+const deleteTarget = ref<{ providerId: string; keyId: string } | null>(null);
 
 const hasResults = computed(() => store.filteredProviders.length > 0);
 const hasConfiguredProviders = computed(() => store.providers.length > 0);
@@ -38,24 +44,37 @@ function notify(message: string) {
   }, 2800);
 }
 
-function handleCopy(keyId: string) {
-  copiedKeyId.value = keyId;
-  notify("安全复制将在本地密钥存储接入后启用");
-  setTimeout(() => {
-    if (copiedKeyId.value === keyId) {
-      copiedKeyId.value = null;
-    }
-  }, 2000);
+async function handleCopy(keyId: string) {
+  try {
+    await copyApiKey(keyId);
+    copiedKeyId.value = keyId;
+    notify("已复制到剪贴板");
+    setTimeout(() => { if (copiedKeyId.value === keyId) copiedKeyId.value = null; }, 2000);
+  } catch { notify("复制失败"); }
 }
 
-function handleRefreshProvider(providerId: string, event: MouseEvent) {
+async function handleRefreshProvider(providerId: string, event: MouseEvent) {
   event.stopPropagation();
   checkingProviderId.value = providerId;
   notify("正在检测该供应商下所有 Key 状态...");
-  setTimeout(() => {
-    checkingProviderId.value = null;
-    notify("状态检测完成");
-  }, 1200);
+  try { await store.checkKeys(providerId); notify("状态检测完成"); }
+  catch { notify("检测失败，请检查检测地址和网络"); }
+  finally { checkingProviderId.value = null; }
+}
+
+async function addKey(payload: { remark: string; value: string }) {
+  if (!keyDialogProvider.value) return;
+  try { await store.addKey({ providerId: keyDialogProvider.value.id, ...payload }); keyDialogProvider.value = null; notify("API Key 已保存"); }
+  catch { notify("保存 API Key 失败"); }
+}
+
+function requestDeleteKey(providerId: string, keyId: string) { deleteTarget.value = { providerId, keyId }; }
+async function deleteKey() {
+  if (!deleteTarget.value) return;
+  const target = deleteTarget.value;
+  try { await store.deleteKey(target.providerId, target.keyId); notify("API Key 已删除"); }
+  catch { notify("删除 API Key 失败"); }
+  finally { deleteTarget.value = null; }
 }
 
 // ======================= 类似 cc-switch 的精准拖拽排序引擎 =======================
@@ -428,15 +447,33 @@ function getCardTransform(index: number): { transform: string } {
 }
 
 function getProviderEndpoint(provider: ProviderSummary): string {
-  return provider.baseUrl || "未配置 Base URL";
+  return provider.platformUrl || "未配置平台管理地址";
+}
+
+async function openProviderPlatform(url: string) {
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+      throw new Error("不支持的链接协议");
+    }
+
+    if ("__TAURI_INTERNALS__" in window) {
+      await openUrl(parsedUrl);
+      return;
+    }
+
+    window.open(parsedUrl.href, "_blank", "noopener,noreferrer");
+  } catch {
+    notify("无法打开该供应商的平台管理地址");
+  }
 }
 
 function getAvailableCount(provider: ProviderSummary): number {
   return provider.keys.filter(k => k.status === 'valid').length;
 }
 
-function addBuiltinProvider(providerId: string) {
-  if (!store.addBuiltinProvider(providerId)) {
+async function addBuiltinProvider(providerId: string) {
+  if (!await store.addBuiltinProvider(providerId)) {
     notify("该供应商已配置");
     return;
   }
@@ -444,8 +481,8 @@ function addBuiltinProvider(providerId: string) {
   notify("已新增供应商配置");
 }
 
-function addCustomProvider(name: string, baseUrl: string, logo?: string) {
-  if (!store.addCustomProvider(name, baseUrl, logo)) {
+async function addCustomProvider(name: string, platformUrl: string, logo?: string) {
+  if (!await store.addCustomProvider(name, platformUrl, logo)) {
     notify("供应商名称已存在");
     return;
   }
@@ -524,7 +561,7 @@ function addCustomProvider(name: string, baseUrl: string, logo?: string) {
                     {{ provider.kind === 'builtin' ? '官方' : '自定义' }}
                   </span>
                 </div>
-                <a v-if="provider.baseUrl" :href="provider.baseUrl" target="_blank" rel="noreferrer" class="provider-endpoint-link" @click.stop>
+                <a v-if="provider.platformUrl" :href="provider.platformUrl" class="provider-endpoint-link" @click.stop.prevent="openProviderPlatform(provider.platformUrl)">
                   {{ getProviderEndpoint(provider) }}
                 </a>
                 <span v-else class="provider-endpoint-link provider-endpoint-link--empty">{{ getProviderEndpoint(provider) }}</span>
@@ -549,7 +586,7 @@ function addCustomProvider(name: string, baseUrl: string, logo?: string) {
                 type="button"
                 @click="handleRefreshProvider(provider.id, $event)"
               >
-                <RefreshCw :size="14" :stroke-width="1.8" />
+                <RefreshCw :size="16" :stroke-width="2" />
               </button>
 
               <div class="provider-actions" @click.stop>
@@ -557,7 +594,7 @@ function addCustomProvider(name: string, baseUrl: string, logo?: string) {
                   v-if="store.expandedProviderId === provider.id"
                   variant="secondary"
                   size="sm"
-                  @click="notify('Key 创建表单将在数据层接入后启用')"
+                  @click="keyDialogProvider = provider"
                 >
                   <Plus :size="13" :stroke-width="2.2" />
                   <span>添加 Key</span>
@@ -598,15 +635,6 @@ function addCustomProvider(name: string, baseUrl: string, logo?: string) {
                     <td>{{ key.remark }}</td>
                     <td class="masked-key">
                       <code>{{ key.maskedValue }}</code>
-                      <AppButton
-                        variant="ghost"
-                        size="icon-sm"
-                        title="临时查看完整 Key"
-                        aria-label="临时查看完整 Key"
-                        @click="notify('完整 Key 仅会由本地安全存储按需提供')"
-                      >
-                        <Eye :size="14" :stroke-width="1.9" />
-                      </AppButton>
                     </td>
                     <td><StatusBadge :status="key.status" /></td>
                     <td>
@@ -619,6 +647,15 @@ function addCustomProvider(name: string, baseUrl: string, logo?: string) {
                       >
                         <Check v-if="copiedKeyId === key.id" :size="14" :stroke-width="2.2" />
                         <Clipboard v-else :size="14" :stroke-width="1.9" />
+                      </AppButton>
+                      <AppButton
+                        variant="danger"
+                        size="icon-sm"
+                        title="删除 Key"
+                        aria-label="删除 Key"
+                        @click="requestDeleteKey(provider.id, key.id)"
+                      >
+                        <Trash2 :size="14" :stroke-width="1.9" />
                       </AppButton>
                     </td>
                   </tr>
@@ -645,6 +682,8 @@ function addCustomProvider(name: string, baseUrl: string, logo?: string) {
 
     <Transition name="toast"><p v-if="notice" class="toast" role="status">{{ notice }}</p></Transition>
     <ProviderConfigDialog :open="configDialogOpen" :configured-provider-ids="store.providers.map((provider) => provider.id)" @close="configDialogOpen = false" @add-builtin="addBuiltinProvider" @add-custom="addCustomProvider" />
+    <ApiKeyDialog :open="Boolean(keyDialogProvider)" :provider-name="keyDialogProvider?.name ?? ''" @close="keyDialogProvider = null" @save="addKey" />
+    <ConfirmDialog :open="Boolean(deleteTarget)" title="删除 API Key" message="确定删除此 API Key 吗？此操作无法撤销。" @close="deleteTarget = null" @confirm="deleteKey" />
   </section>
 </template>
 

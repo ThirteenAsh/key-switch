@@ -7,11 +7,11 @@ const props = defineProps<{ open: boolean }>();
 
 const emit = defineEmits<{
   close: [];
-  add: [payload: { name: string; baseUrl: string; logo?: string }];
+  add: [payload: { name: string; platformUrl: string; logo?: string }];
 }>();
 
 const name = ref("");
-const baseUrl = ref("");
+const platformUrl = ref("");
 const logo = ref("");
 const error = ref("");
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -19,7 +19,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 watch(() => props.open, (isOpen) => {
   if (!isOpen) return;
   name.value = "";
-  baseUrl.value = "";
+  platformUrl.value = "";
   logo.value = "";
   error.value = "";
   if (fileInput.value) fileInput.value.value = "";
@@ -62,27 +62,35 @@ function removeAvatar() {
   if (fileInput.value) fileInput.value.value = "";
 }
 
+function ensureHttpsPrefix() {
+  const value = platformUrl.value.trim();
+  if (value && !/^https?:\/\//i.test(value)) {
+    platformUrl.value = `https://${value}`;
+  }
+  return platformUrl.value.trim();
+}
+
 function submit() {
   const normalizedName = name.value.trim();
-  const normalizedBaseUrl = baseUrl.value.trim();
+  const normalizedPlatformUrl = ensureHttpsPrefix();
   if (!normalizedName) {
     error.value = "请输入供应商名称";
     return;
   }
-  if (!normalizedBaseUrl) {
-    error.value = "请输入 API 接口基础地址";
+  if (!normalizedPlatformUrl) {
+    error.value = "请输入平台管理地址";
     return;
   }
 
   try {
-    const parsedUrl = new URL(normalizedBaseUrl);
+    const parsedUrl = new URL(normalizedPlatformUrl);
     if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") throw new Error();
   } catch {
     error.value = "请输入有效的 http 或 https 地址";
     return;
   }
 
-  emit("add", { name: normalizedName, baseUrl: normalizedBaseUrl, logo: logo.value || undefined });
+  emit("add", { name: normalizedName, platformUrl: normalizedPlatformUrl, logo: logo.value || undefined });
 }
 </script>
 
@@ -126,8 +134,8 @@ function submit() {
               <input v-model="name" maxlength="64" placeholder="例如：公司内部模型网关 / OneAPI" autocomplete="off" autofocus />
             </label>
             <label>
-              <span class="field-label">API 接口基础地址 (Base URL)</span>
-              <input v-model="baseUrl" type="url" placeholder="https://api.example.com/v1" autocomplete="url" />
+              <span class="field-label">平台管理地址</span>
+              <input v-model="platformUrl" type="text" inputmode="url" placeholder="https://platform.example.com" autocomplete="url" @blur="ensureHttpsPrefix" />
             </label>
 
             <p v-if="error" class="form-error" role="alert">{{ error }}</p>
