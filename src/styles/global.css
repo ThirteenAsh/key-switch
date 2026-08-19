@@ -645,8 +645,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .settings-heading svg {
-  flex: 0 0 auto;
-  margin-top: 2px;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin-top: 0;
+  padding: 11px;
   color: #0f172a;
 }
 
@@ -677,10 +680,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border-radius: 6px;
 }
 
-.settings-github-icon {
-  width: 19px;
-  height: 19px;
-  margin-top: 2px;
+.settings-app-icon {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin-top: 0;
 }
 
 .settings-version-actions {
@@ -690,8 +694,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .button-github-icon {
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
 }
 
 /* 底部状态条 */

@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import { FolderOpen, RefreshCw } from "@lucide/vue";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import githubIcon from "../assets/icons8-github.svg";
+import appIcon from "../assets/key-switch.svg";
 import AppButton from "../components/ui/AppButton.vue";
 import { getAppInfo, openDataDirectory as openAppDataDirectory } from "../api/app";
 
@@ -60,7 +61,7 @@ onMounted(async () => {
 
       <article class="settings-card settings-card--version">
         <div class="settings-heading">
-          <img :src="githubIcon" class="settings-github-icon" alt="GitHub" />
+          <img :src="appIcon" class="settings-app-icon" alt="Key Switch" />
           <div>
             <h2>Key Switch</h2>
             <p>当前版本 {{ version }}</p>

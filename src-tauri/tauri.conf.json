@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "API Key 管理器",
+        "title": "Key Switch",
         "width": 900,
         "height": 650,
         "minWidth": 760,
