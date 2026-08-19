@@ -49,7 +49,7 @@ export const useDashboardStore = defineStore("dashboard", () => {
     return true;
   }
 
-  function addCustomProvider(name: string, baseUrl: string, logo?: string) {
+  function addCustomProvider(name: string, platformUrl: string, logo?: string) {
     const normalizedName = name.trim();
     if (!normalizedName || providers.value.some((provider) => provider.name === normalizedName)) return false;
 
@@ -60,7 +60,7 @@ export const useDashboardStore = defineStore("dashboard", () => {
       abbreviation: normalizedName.slice(0, 2).toUpperCase(),
       tone: "gray",
       kind: "custom",
-      baseUrl: baseUrl.trim() || undefined,
+      platformUrl: platformUrl.trim() || undefined,
       logo,
       keys: [],
     });
@@ -68,16 +68,16 @@ export const useDashboardStore = defineStore("dashboard", () => {
     return true;
   }
 
-  function updateProviderConfiguration(providerId: string, name: string, baseUrl: string) {
+  function updateProviderConfiguration(providerId: string, name: string, platformUrl: string) {
     const provider = providers.value.find((item) => item.id === providerId);
     const normalizedName = name.trim();
-    const normalizedBaseUrl = baseUrl.trim();
-    if (!provider || !normalizedName || !normalizedBaseUrl) return false;
+    const normalizedPlatformUrl = platformUrl.trim();
+    if (!provider || !normalizedName || !normalizedPlatformUrl) return false;
 
     if (providers.value.some((item) => item.id !== providerId && item.name === normalizedName)) return false;
 
     provider.name = normalizedName;
-    provider.baseUrl = normalizedBaseUrl;
+    provider.platformUrl = normalizedPlatformUrl;
     return true;
   }
 

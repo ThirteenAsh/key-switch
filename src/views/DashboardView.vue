@@ -15,6 +15,7 @@ import {
   GripVertical,
   RefreshCw
 } from "@lucide/vue";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import AppButton from "../components/ui/AppButton.vue";
 import ProviderAvatar from "../components/ProviderAvatar.vue";
 import ProviderConfigDialog from "../components/ProviderConfigDialog.vue";
@@ -428,7 +429,25 @@ function getCardTransform(index: number): { transform: string } {
 }
 
 function getProviderEndpoint(provider: ProviderSummary): string {
-  return provider.baseUrl || "未配置 Base URL";
+  return provider.platformUrl || "未配置平台管理地址";
+}
+
+async function openProviderPlatform(url: string) {
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+      throw new Error("不支持的链接协议");
+    }
+
+    if ("__TAURI_INTERNALS__" in window) {
+      await openUrl(parsedUrl);
+      return;
+    }
+
+    window.open(parsedUrl.href, "_blank", "noopener,noreferrer");
+  } catch {
+    notify("无法打开该供应商的平台管理地址");
+  }
 }
 
 function getAvailableCount(provider: ProviderSummary): number {
@@ -444,8 +463,8 @@ function addBuiltinProvider(providerId: string) {
   notify("已新增供应商配置");
 }
 
-function addCustomProvider(name: string, baseUrl: string, logo?: string) {
-  if (!store.addCustomProvider(name, baseUrl, logo)) {
+function addCustomProvider(name: string, platformUrl: string, logo?: string) {
+  if (!store.addCustomProvider(name, platformUrl, logo)) {
     notify("供应商名称已存在");
     return;
   }
@@ -524,7 +543,7 @@ function addCustomProvider(name: string, baseUrl: string, logo?: string) {
                     {{ provider.kind === 'builtin' ? '官方' : '自定义' }}
                   </span>
                 </div>
-                <a v-if="provider.baseUrl" :href="provider.baseUrl" target="_blank" rel="noreferrer" class="provider-endpoint-link" @click.stop>
+                <a v-if="provider.platformUrl" :href="provider.platformUrl" class="provider-endpoint-link" @click.stop.prevent="openProviderPlatform(provider.platformUrl)">
                   {{ getProviderEndpoint(provider) }}
                 </a>
                 <span v-else class="provider-endpoint-link provider-endpoint-link--empty">{{ getProviderEndpoint(provider) }}</span>
