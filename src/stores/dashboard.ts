@@ -1,7 +1,7 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { builtinProviderCatalog } from "../data/providerCatalog";
-import { checkProviderKeys, createApiKey, createProvider, deleteApiKey, deleteProvider, listProviders, reorderProviders, updateProvider } from "../api/app";
+import { checkApiKey, checkProviderKeys, createApiKey, createProvider, deleteApiKey, deleteProvider, listProviders, reorderProviders, updateApiKey, updateProvider } from "../api/app";
 import type { ProviderSummary } from "../types/domain";
 
 export const useDashboardStore = defineStore("dashboard", () => {
@@ -31,7 +31,35 @@ export const useDashboardStore = defineStore("dashboard", () => {
   async function removeProvider(providerId: string) { await deleteProvider(providerId); providers.value = providers.value.filter((provider) => provider.id !== providerId); if (expandedProviderId.value === providerId) expandedProviderId.value = ""; }
   function reorderProvidersLocally(from: number, to: number) { const [moved] = providers.value.splice(from, 1); providers.value.splice(to, 0, moved); void reorderProviders(providers.value.map((p) => p.id)); }
   async function addKey(input: { providerId: string; remark: string; value: string }) { const key = await createApiKey(input); const provider = providers.value.find((p) => p.id === input.providerId); if (provider) provider.keys.push(key); }
+  async function replaceKey(providerId: string, input: { id: string; remark: string; value: string }) { const updated = await updateApiKey(input); const provider = providers.value.find((p) => p.id === providerId); const index = provider?.keys.findIndex((key) => key.id === input.id) ?? -1; if (provider && index >= 0) provider.keys[index] = updated; }
   async function deleteKey(providerId: string, keyId: string) { await deleteApiKey(keyId); const provider = providers.value.find((p) => p.id === providerId); if (provider) provider.keys = provider.keys.filter((key) => key.id !== keyId); }
-  async function checkKeys(providerId: string) { const keys = await checkProviderKeys(providerId); const provider = providers.value.find((p) => p.id === providerId); if (provider) provider.keys = keys; }
-  return { providers, query, filteredProviders, summary, expandedProviderId, toggleProvider, load, addBuiltinProvider, addCustomProvider, updateProviderConfiguration, removeProvider, reorderProviders: reorderProvidersLocally, addKey, deleteKey, checkKeys };
+  async function checkKeys(providerId: string) {
+    const provider = providers.value.find((item) => item.id === providerId);
+    const previousStatuses = provider?.keys.map((key) => key.status) ?? [];
+    if (provider) provider.keys.forEach((key) => { key.status = "checking"; });
+    try {
+      const keys = await checkProviderKeys(providerId);
+      if (provider) provider.keys = keys;
+      return keys;
+    } catch (error) {
+      if (provider) provider.keys.forEach((key, index) => { key.status = previousStatuses[index] ?? "untested"; });
+      throw error;
+    }
+  }
+  async function checkKey(providerId: string, keyId: string) {
+    const provider = providers.value.find((item) => item.id === providerId);
+    const key = provider?.keys.find((item) => item.id === keyId);
+    const previousStatus = key?.status ?? "untested";
+    if (key) key.status = "checking";
+    try {
+      const updated = await checkApiKey(providerId, keyId);
+      const index = provider?.keys.findIndex((item) => item.id === keyId) ?? -1;
+      if (provider && index >= 0) provider.keys[index] = updated;
+      return updated;
+    } catch (error) {
+      if (key) key.status = previousStatus;
+      throw error;
+    }
+  }
+  return { providers, query, filteredProviders, summary, expandedProviderId, toggleProvider, load, addBuiltinProvider, addCustomProvider, updateProviderConfiguration, removeProvider, reorderProviders: reorderProvidersLocally, addKey, replaceKey, deleteKey, checkKey, checkKeys };
 });
