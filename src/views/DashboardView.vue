@@ -3,8 +3,9 @@ import { computed, ref, onUnmounted, nextTick } from "vue";
 import {
   ChevronDown,
   ChevronRight,
-  Clipboard,
+  Copy,
   Trash2,
+  SquarePen,
   Check,
   Info,
   KeyRound,
@@ -12,6 +13,7 @@ import {
   Plus,
   Search,
   CheckCircle2,
+  ShieldCheck,
   GripVertical,
   RefreshCw
 } from "@lucide/vue";
@@ -24,7 +26,7 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { useDashboardStore } from "../stores/dashboard";
 import { copyApiKey } from "../api/app";
-import type { ProviderSummary } from "../types/domain";
+import type { ApiKeySummary, ProviderSummary } from "../types/domain";
 
 const store = useDashboardStore();
 const notice = ref("");
@@ -32,6 +34,7 @@ const configDialogOpen = ref(false);
 const copiedKeyId = ref<string | null>(null);
 const checkingProviderId = ref<string | null>(null);
 const keyDialogProvider = ref<ProviderSummary | null>(null);
+const editingKey = ref<ApiKeySummary | null>(null);
 const deleteTarget = ref<{ providerId: string; keyId: string } | null>(null);
 
 const hasResults = computed(() => store.filteredProviders.length > 0);
@@ -55,17 +58,59 @@ async function handleCopy(keyId: string) {
 
 async function handleRefreshProvider(providerId: string, event: MouseEvent) {
   event.stopPropagation();
+  const provider = store.providers.find((item) => item.id === providerId);
+  if (checkingProviderId.value || provider?.keys.some((key) => key.status === "checking")) return;
   checkingProviderId.value = providerId;
   notify("正在检测该供应商下所有 Key 状态...");
-  try { await store.checkKeys(providerId); notify("状态检测完成"); }
-  catch { notify("检测失败，请检查检测地址和网络"); }
+  try {
+    const keys = await store.checkKeys(providerId);
+    const validCount = keys.filter((key) => key.status === "valid").length;
+    const invalidCount = keys.filter((key) => key.status === "invalid").length;
+    const errorCount = keys.filter((key) => key.status === "error").length;
+    notify(`检测完成：${validCount} 可用，${invalidCount} 无效，${errorCount} 异常`);
+  }
+  catch { notify("检测失败，请检查网络或供应商配置"); }
   finally { checkingProviderId.value = null; }
 }
 
-async function addKey(payload: { remark: string; value: string }) {
+function openCreateKeyDialog(provider: ProviderSummary) {
+  editingKey.value = null;
+  keyDialogProvider.value = provider;
+}
+
+async function handleCheckKey(providerId: string, keyId: string) {
+  try {
+    const key = await store.checkKey(providerId, keyId);
+    const message = key.status === "valid"
+      ? "该 API Key 可用"
+      : key.status === "invalid" ? "该 API Key 无效" : "检测异常，请稍后重试";
+    notify(message);
+  } catch { notify("检测失败，请检查网络或供应商配置"); }
+}
+
+function openEditKeyDialog(provider: ProviderSummary, key: ApiKeySummary) {
+  editingKey.value = key;
+  keyDialogProvider.value = provider;
+}
+
+function closeKeyDialog() {
+  keyDialogProvider.value = null;
+  editingKey.value = null;
+}
+
+async function saveKey(payload: { remark: string; value: string }) {
   if (!keyDialogProvider.value) return;
-  try { await store.addKey({ providerId: keyDialogProvider.value.id, ...payload }); keyDialogProvider.value = null; notify("API Key 已保存"); }
-  catch { notify("保存 API Key 失败"); }
+  try {
+    if (editingKey.value) {
+      await store.replaceKey(keyDialogProvider.value.id, { id: editingKey.value.id, ...payload });
+      closeKeyDialog();
+      notify("API Key 已替换");
+    } else {
+      await store.addKey({ providerId: keyDialogProvider.value.id, ...payload });
+      closeKeyDialog();
+      notify("API Key 已保存");
+    }
+  } catch { notify(editingKey.value ? "替换 API Key 失败" : "保存 API Key 失败"); }
 }
 
 function requestDeleteKey(providerId: string, keyId: string) { deleteTarget.value = { providerId, keyId }; }
@@ -582,6 +627,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
               <button
                 class="refresh-btn"
                 :class="{ 'is-spinning': checkingProviderId === provider.id }"
+                :disabled="checkingProviderId === provider.id || provider.keys.some((key) => key.status === 'checking')"
                 title="重新检测状态"
                 type="button"
                 @click="handleRefreshProvider(provider.id, $event)"
@@ -594,7 +640,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                   v-if="store.expandedProviderId === provider.id"
                   variant="secondary"
                   size="sm"
-                  @click="keyDialogProvider = provider"
+                  @click="openCreateKeyDialog(provider)"
                 >
                   <Plus :size="13" :stroke-width="2.2" />
                   <span>添加 Key</span>
@@ -637,7 +683,26 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                       <code>{{ key.maskedValue }}</code>
                     </td>
                     <td><StatusBadge :status="key.status" /></td>
-                    <td>
+                    <td><span class="key-actions">
+                      <AppButton
+                        variant="ghost"
+                        size="icon-sm"
+                        :loading="key.status === 'checking'"
+                        title="检测 Key"
+                        aria-label="检测 Key"
+                        @click="handleCheckKey(provider.id, key.id)"
+                      >
+                        <ShieldCheck :size="15" :stroke-width="2" />
+                      </AppButton>
+                      <AppButton
+                        variant="ghost"
+                        size="icon-sm"
+                        title="编辑 Key"
+                        aria-label="编辑 Key"
+                        @click="openEditKeyDialog(provider, key)"
+                      >
+                        <SquarePen :size="15" :stroke-width="2" />
+                      </AppButton>
                       <AppButton
                         :variant="copiedKeyId === key.id ? 'success' : 'ghost'"
                         size="icon-sm"
@@ -646,7 +711,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                         @click="handleCopy(key.id)"
                       >
                         <Check v-if="copiedKeyId === key.id" :size="14" :stroke-width="2.2" />
-                        <Clipboard v-else :size="14" :stroke-width="1.9" />
+                        <Copy v-else :size="15" :stroke-width="2" />
                       </AppButton>
                       <AppButton
                         variant="danger"
@@ -655,9 +720,9 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                         aria-label="删除 Key"
                         @click="requestDeleteKey(provider.id, key.id)"
                       >
-                        <Trash2 :size="14" :stroke-width="1.9" />
+                        <Trash2 :size="15" :stroke-width="2" />
                       </AppButton>
-                    </td>
+                    </span></td>
                   </tr>
                 </tbody>
               </table>
@@ -682,7 +747,14 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
 
     <Transition name="toast"><p v-if="notice" class="toast" role="status">{{ notice }}</p></Transition>
     <ProviderConfigDialog :open="configDialogOpen" :configured-provider-ids="store.providers.map((provider) => provider.id)" @close="configDialogOpen = false" @add-builtin="addBuiltinProvider" @add-custom="addCustomProvider" />
-    <ApiKeyDialog :open="Boolean(keyDialogProvider)" :provider-name="keyDialogProvider?.name ?? ''" @close="keyDialogProvider = null" @save="addKey" />
+    <ApiKeyDialog
+      :open="Boolean(keyDialogProvider)"
+      :provider-name="keyDialogProvider?.name ?? ''"
+      :mode="editingKey ? 'edit' : 'create'"
+      :initial-remark="editingKey?.remark ?? ''"
+      @close="closeKeyDialog"
+      @save="saveKey"
+    />
     <ConfirmDialog :open="Boolean(deleteTarget)" title="删除 API Key" message="确定删除此 API Key 吗？此操作无法撤销。" @close="deleteTarget = null" @confirm="deleteKey" />
   </section>
 </template>
