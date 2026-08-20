@@ -6,13 +6,17 @@ import githubIcon from "../assets/icons8-github.svg";
 import appIcon from "../assets/key-switch.svg";
 import AppButton from "../components/ui/AppButton.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
-import { clearLogs, getAppInfo, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
+import UpdateAvailableDialog from "../components/UpdateAvailableDialog.vue";
+import { checkForAppUpdates, clearLogs, getAppInfo, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
+import type { UpdateInfo } from "../api/app";
 
 const dataDirectory = ref("正在读取本地数据目录");
 const logDirectory = ref("正在读取日志目录");
-const version = ref("v0.0.2");
+const version = ref("v0.0.3-beta");
 const notice = ref("");
 const clearLogDialogOpen = ref(false);
+const checkingForUpdates = ref(false);
+const availableUpdate = ref<UpdateInfo | null>(null);
 
 function notify(message: string) {
   notice.value = message;
@@ -42,7 +46,31 @@ async function openGithub() {
   catch { notify("无法打开 GitHub 仓库"); }
 }
 
-function checkForUpdates() { notify("测试版暂不支持自动更新"); }
+async function checkForUpdates() {
+  if (checkingForUpdates.value) return;
+  checkingForUpdates.value = true;
+  try {
+    const update = await checkForAppUpdates();
+    if (!update) {
+      notify("当前已是最新版本");
+      return;
+    }
+    availableUpdate.value = update;
+  } catch { notify("检查更新失败，请稍后重试"); }
+  finally { checkingForUpdates.value = false; }
+}
+
+async function openUpdateRelease() {
+  if (!availableUpdate.value) return;
+  try {
+    const url = new URL(availableUpdate.value.releaseUrl);
+    if (url.protocol !== "https:" || url.hostname !== "github.com" || !url.pathname.startsWith("/ThirteenAsh/key-switch/releases/")) {
+      throw new Error("无效的 Release 地址");
+    }
+    await openUrl(url.href);
+    availableUpdate.value = null;
+  } catch { notify("无法打开版本下载页面"); }
+}
 
 onMounted(async () => {
   const appInfo = await getAppInfo();
@@ -111,7 +139,7 @@ onMounted(async () => {
             <img :src="githubIcon" class="button-github-icon" alt="" />
             GitHub
           </AppButton>
-          <AppButton variant="primary" size="sm" @click="checkForUpdates">
+          <AppButton variant="primary" size="sm" :loading="checkingForUpdates" @click="checkForUpdates">
             <RefreshCw :size="14" :stroke-width="2" />
             检查更新
           </AppButton>
@@ -126,6 +154,12 @@ onMounted(async () => {
       confirm-label="清空日志"
       @close="clearLogDialogOpen = false"
       @confirm="confirmClearLogs"
+    />
+    <UpdateAvailableDialog
+      :open="Boolean(availableUpdate)"
+      :update="availableUpdate"
+      @close="availableUpdate = null"
+      @download="openUpdateRelease"
     />
   </section>
 </template>

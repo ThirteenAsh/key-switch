@@ -10,7 +10,7 @@ on:
       tag_name:
         description: 要创建的版本标签（必须以 v 开头）
         required: true
-        default: v0.0.2-alpha
+        default: v0.0.3-beta
         type: string
 
 permissions:

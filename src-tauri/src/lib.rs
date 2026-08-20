@@ -1,6 +1,7 @@
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::{
+    cmp::Ordering,
     fs::{self, OpenOptions},
     io::Write,
     path::PathBuf,
@@ -98,6 +99,142 @@ struct CreateKeyInput {
     value: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateInfo {
+    current_version: String,
+    latest_version: String,
+    title: String,
+    notes: String,
+    release_url: String,
+    prerelease: bool,
+    published_at: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct GithubRelease {
+    tag_name: String,
+    name: Option<String>,
+    body: Option<String>,
+    html_url: String,
+    draft: bool,
+    prerelease: bool,
+    published_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum PrereleaseIdentifier {
+    Numeric(u64),
+    Text(String),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SemVersion {
+    major: u64,
+    minor: u64,
+    patch: u64,
+    prerelease: Vec<PrereleaseIdentifier>,
+}
+
+impl SemVersion {
+    fn parse(value: &str) -> Option<Self> {
+        let value = value.trim();
+        let value = value.strip_prefix("app-").unwrap_or(value);
+        let value = value
+            .strip_prefix('v')
+            .or_else(|| value.strip_prefix('V'))
+            .unwrap_or(value);
+        let value = value
+            .split_once('+')
+            .map(|(version, _)| version)
+            .unwrap_or(value);
+        let (core, prerelease) = value
+            .split_once('-')
+            .map(|(core, prerelease)| (core, Some(prerelease)))
+            .unwrap_or((value, None));
+        let mut numbers = core.split('.');
+        let major = numbers.next()?.parse().ok()?;
+        let minor = numbers.next()?.parse().ok()?;
+        let patch = numbers.next()?.parse().ok()?;
+        if numbers.next().is_some() {
+            return None;
+        }
+        let prerelease = prerelease
+            .map(|value| {
+                value
+                    .split('.')
+                    .filter(|item| !item.is_empty())
+                    .map(|item| {
+                        item.parse::<u64>()
+                            .map(PrereleaseIdentifier::Numeric)
+                            .unwrap_or_else(|_| {
+                                PrereleaseIdentifier::Text(item.to_ascii_lowercase())
+                            })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        Some(Self {
+            major,
+            minor,
+            patch,
+            prerelease,
+        })
+    }
+
+    fn is_prerelease(&self) -> bool {
+        !self.prerelease.is_empty()
+    }
+}
+
+impl Ord for SemVersion {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.major
+            .cmp(&other.major)
+            .then_with(|| self.minor.cmp(&other.minor))
+            .then_with(|| self.patch.cmp(&other.patch))
+            .then_with(
+                || match (self.prerelease.is_empty(), other.prerelease.is_empty()) {
+                    (true, true) => Ordering::Equal,
+                    (true, false) => Ordering::Greater,
+                    (false, true) => Ordering::Less,
+                    (false, false) => {
+                        for (left, right) in self.prerelease.iter().zip(&other.prerelease) {
+                            let ordering = match (left, right) {
+                                (
+                                    PrereleaseIdentifier::Numeric(left),
+                                    PrereleaseIdentifier::Numeric(right),
+                                ) => left.cmp(right),
+                                (
+                                    PrereleaseIdentifier::Numeric(_),
+                                    PrereleaseIdentifier::Text(_),
+                                ) => Ordering::Less,
+                                (
+                                    PrereleaseIdentifier::Text(_),
+                                    PrereleaseIdentifier::Numeric(_),
+                                ) => Ordering::Greater,
+                                (
+                                    PrereleaseIdentifier::Text(left),
+                                    PrereleaseIdentifier::Text(right),
+                                ) => left.cmp(right),
+                            };
+                            if ordering != Ordering::Equal {
+                                return ordering;
+                            }
+                        }
+                        self.prerelease.len().cmp(&other.prerelease.len())
+                    }
+                },
+            )
+    }
+}
+
+impl PartialOrd for SemVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[derive(Deserialize)]
 struct UpdateKeyInput {
     id: String,
@@ -116,6 +253,7 @@ const KEYRING_SERVICE: &str = "com.app.key-switch";
 const LOG_FILE_NAME: &str = "key-switch.log";
 const LOG_BACKUP_FILE_NAME: &str = "key-switch.log.1";
 const MAX_LOG_FILE_SIZE: u64 = 1024 * 1024;
+const AUTOMATIC_UPDATES_ENABLED: bool = false;
 static LOG_LOCK: Mutex<()> = Mutex::new(());
 
 fn data_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -144,7 +282,9 @@ fn append_log(
     event: &str,
     detail: &str,
 ) -> Result<(), String> {
-    let _guard = LOG_LOCK.lock().map_err(|_| "日志写入锁不可用".to_string())?;
+    let _guard = LOG_LOCK
+        .lock()
+        .map_err(|_| "日志写入锁不可用".to_string())?;
     let directory = log_directory(app)?;
     fs::create_dir_all(&directory).map_err(|e| format!("无法创建日志目录：{e}"))?;
     let file = log_file(app)?;
@@ -256,7 +396,9 @@ enum KeyValidationSpec {
 
 fn key_validation_spec(provider_id: &str) -> Option<KeyValidationSpec> {
     match provider_id {
-        "openai" => Some(KeyValidationSpec::Bearer("https://api.openai.com/v1/models")),
+        "openai" => Some(KeyValidationSpec::Bearer(
+            "https://api.openai.com/v1/models",
+        )),
         "claude" | "anthropic" => Some(KeyValidationSpec::Anthropic),
         "gemini" | "aistudio" => Some(KeyValidationSpec::ApiKeyHeader {
             url: "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1",
@@ -270,15 +412,25 @@ fn key_validation_spec(provider_id: &str) -> Option<KeyValidationSpec> {
         "qwen" => Some(KeyValidationSpec::Bearer(
             "https://dashscope.aliyuncs.com/api/v1/deployments?page_no=1&page_size=1",
         )),
-        "kimi" => Some(KeyValidationSpec::Bearer("https://api.moonshot.cn/v1/models")),
+        "kimi" => Some(KeyValidationSpec::Bearer(
+            "https://api.moonshot.cn/v1/models",
+        )),
         "grok" => Some(KeyValidationSpec::Bearer("https://api.x.ai/v1/models")),
-        "openrouter" => Some(KeyValidationSpec::Bearer("https://openrouter.ai/api/v1/key")),
-        "minimax" => Some(KeyValidationSpec::Bearer("https://api.minimaxi.com/v1/models")),
-        "doubao" => Some(KeyValidationSpec::Bearer("https://ark.cn-beijing.volces.com/ping")),
+        "openrouter" => Some(KeyValidationSpec::Bearer(
+            "https://openrouter.ai/api/v1/key",
+        )),
+        "minimax" => Some(KeyValidationSpec::Bearer(
+            "https://api.minimaxi.com/v1/models",
+        )),
+        "doubao" => Some(KeyValidationSpec::Bearer(
+            "https://ark.cn-beijing.volces.com/ping",
+        )),
         "hunyuan" => Some(KeyValidationSpec::Bearer(
             "https://tokenhub.tencentmaas.com/v1/models",
         )),
-        "qianfan" => Some(KeyValidationSpec::Bearer("https://qianfan.baidubce.com/v2/models")),
+        "qianfan" => Some(KeyValidationSpec::Bearer(
+            "https://qianfan.baidubce.com/v2/models",
+        )),
         "zhipu" => Some(KeyValidationSpec::Bearer(
             "https://open.bigmodel.cn/api/paas/v4/files",
         )),
@@ -303,16 +455,12 @@ fn validation_client() -> Result<reqwest::Client, String> {
         .timeout(Duration::from_secs(10))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("Key-Switch/0.0.2")
+        .user_agent("Key-Switch/0.0.3-beta")
         .build()
         .map_err(|e| format!("无法初始化网络客户端：{e}"))
 }
 
-async fn validate_key(
-    client: &reqwest::Client,
-    provider_id: &str,
-    value: &str,
-) -> &'static str {
+async fn validate_key(client: &reqwest::Client, provider_id: &str, value: &str) -> &'static str {
     let Some(spec) = key_validation_spec(provider_id) else {
         return "error";
     };
@@ -336,17 +484,39 @@ async fn validate_key(
 
 #[cfg(test)]
 mod tests {
-    use super::classify_validation_status;
+    use super::{classify_validation_status, SemVersion};
     use reqwest::StatusCode;
 
     #[test]
     fn classifies_key_validation_responses() {
         assert_eq!(classify_validation_status(StatusCode::OK), "valid");
-        assert_eq!(classify_validation_status(StatusCode::BAD_REQUEST), "invalid");
-        assert_eq!(classify_validation_status(StatusCode::UNAUTHORIZED), "invalid");
+        assert_eq!(
+            classify_validation_status(StatusCode::BAD_REQUEST),
+            "invalid"
+        );
+        assert_eq!(
+            classify_validation_status(StatusCode::UNAUTHORIZED),
+            "invalid"
+        );
         assert_eq!(classify_validation_status(StatusCode::FORBIDDEN), "error");
-        assert_eq!(classify_validation_status(StatusCode::TOO_MANY_REQUESTS), "error");
-        assert_eq!(classify_validation_status(StatusCode::INTERNAL_SERVER_ERROR), "error");
+        assert_eq!(
+            classify_validation_status(StatusCode::TOO_MANY_REQUESTS),
+            "error"
+        );
+        assert_eq!(
+            classify_validation_status(StatusCode::INTERNAL_SERVER_ERROR),
+            "error"
+        );
+    }
+
+    #[test]
+    fn compares_release_versions_using_semver_precedence() {
+        let alpha = SemVersion::parse("v0.0.2-alpha").unwrap();
+        let next_alpha = SemVersion::parse("app-v0.0.3-alpha.1").unwrap();
+        let stable = SemVersion::parse("0.0.3").unwrap();
+        assert!(next_alpha > alpha);
+        assert!(stable > next_alpha);
+        assert!(SemVersion::parse("invalid").is_none());
     }
 }
 
@@ -363,6 +533,87 @@ fn get_app_info(app: tauri::AppHandle) -> Result<AppInfo, String> {
             .to_string(),
         log_directory: log_directory.display().to_string(),
     })
+}
+
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
+    const RELEASES_API: &str =
+        "https://api.github.com/repos/ThirteenAsh/key-switch/releases?per_page=20";
+    const RELEASE_URL_PREFIX: &str = "https://github.com/ThirteenAsh/key-switch/releases/";
+    const MAX_RESPONSE_SIZE: usize = 512 * 1024;
+
+    let current_version_text = app.package_info().version.to_string();
+    let current_version =
+        SemVersion::parse(&current_version_text).ok_or("当前应用版本不符合 SemVer 规范")?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(12))
+        .connect_timeout(Duration::from_secs(5))
+        .redirect(reqwest::redirect::Policy::limited(3))
+        .user_agent("Key-Switch-Update-Check/0.0.3-beta")
+        .build()
+        .map_err(|e| format!("无法初始化更新检测客户端：{e}"))?;
+    let response = client
+        .get(RELEASES_API)
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .send()
+        .await
+        .map_err(|e| format!("无法连接 GitHub Releases：{e}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "GitHub Releases 返回异常状态：{}",
+            response.status()
+        ));
+    }
+    if response.content_length().unwrap_or(0) > MAX_RESPONSE_SIZE as u64 {
+        return Err("GitHub Releases 响应过大".into());
+    }
+    let body = response
+        .bytes()
+        .await
+        .map_err(|e| format!("无法读取 GitHub Releases 响应：{e}"))?;
+    if body.len() > MAX_RESPONSE_SIZE {
+        return Err("GitHub Releases 响应过大".into());
+    }
+    let releases: Vec<GithubRelease> =
+        serde_json::from_slice(&body).map_err(|e| format!("GitHub Releases 数据格式错误：{e}"))?;
+
+    let candidate = releases
+        .into_iter()
+        .filter(|release| !release.draft && release.html_url.starts_with(RELEASE_URL_PREFIX))
+        .filter_map(|release| {
+            SemVersion::parse(&release.tag_name).map(|version| (release, version))
+        })
+        .filter(|(release, version)| {
+            version > &current_version && (current_version.is_prerelease() || !release.prerelease)
+        })
+        .max_by(|(_, left), (_, right)| left.cmp(right));
+
+    let Some((release, _)) = candidate else {
+        let _ = append_log(&app, "INFO", "update_checked", "available=false");
+        return Ok(None);
+    };
+    let notes = release
+        .body
+        .unwrap_or_default()
+        .chars()
+        .take(4000)
+        .collect();
+    let update = UpdateInfo {
+        current_version: current_version_text,
+        latest_version: release
+            .tag_name
+            .trim_start_matches("app-")
+            .trim_start_matches('v')
+            .into(),
+        title: release.name.unwrap_or_else(|| release.tag_name.clone()),
+        notes,
+        release_url: release.html_url,
+        prerelease: release.prerelease,
+        published_at: release.published_at,
+    };
+    let _ = append_log(&app, "INFO", "update_checked", "available=true");
+    Ok(Some(update))
 }
 #[tauri::command]
 fn open_data_directory(app: tauri::AppHandle) -> Result<(), String> {
@@ -384,7 +635,9 @@ fn open_log_directory(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn clear_logs(app: tauri::AppHandle) -> Result<(), String> {
-    let _guard = LOG_LOCK.lock().map_err(|_| "日志写入锁不可用".to_string())?;
+    let _guard = LOG_LOCK
+        .lock()
+        .map_err(|_| "日志写入锁不可用".to_string())?;
     let directory = log_directory(&app)?;
     fs::create_dir_all(&directory).map_err(|e| format!("无法创建日志目录：{e}"))?;
     for file_name in [LOG_FILE_NAME, LOG_BACKUP_FILE_NAME] {
@@ -633,7 +886,9 @@ async fn check_provider_keys(
     let client = validation_client()?;
     for key in &mut provider.keys {
         let value = key_value(key)?;
-        key.status = validate_key(&client, &validation_provider_id, &value).await.into();
+        key.status = validate_key(&client, &validation_provider_id, &value)
+            .await
+            .into();
         key.last_checked_at = Some(now());
     }
     let result = provider
@@ -651,7 +906,10 @@ async fn check_provider_keys(
         "api_keys_checked",
         &format!(
             "total={} valid={} invalid={} error={}",
-            result.len(), valid_count, invalid_count, error_count
+            result.len(),
+            valid_count,
+            invalid_count,
+            error_count
         ),
     );
     Ok(result)
@@ -677,7 +935,9 @@ async fn check_api_key(
         .ok_or("未找到 API Key")?;
     let value = key_value(key)?;
     let client = validation_client()?;
-    key.status = validate_key(&client, &validation_provider_id, &value).await.into();
+    key.status = validate_key(&client, &validation_provider_id, &value)
+        .await
+        .into();
     key.last_checked_at = Some(now());
     let result = ApiKeySummary {
         id: key.id.clone(),
@@ -699,15 +959,20 @@ async fn check_api_key(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_clipboard_manager::init());
+    if AUTOMATIC_UPDATES_ENABLED {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+    builder
         .setup(|app| {
             let _ = append_log(app.handle(), "INFO", "application_started", "success");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_app_info,
+            check_for_updates,
             open_data_directory,
             open_log_directory,
             clear_logs,

@@ -7,6 +7,16 @@ export interface AppInfo {
   logDirectory: string;
 }
 
+export interface UpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  title: string;
+  notes: string;
+  releaseUrl: string;
+  prerelease: boolean;
+  publishedAt?: string;
+}
+
 export async function getAppInfo(): Promise<AppInfo | null> {
   if (!("__TAURI_INTERNALS__" in window)) return null;
   return invoke<AppInfo>("get_app_info");
@@ -17,6 +27,7 @@ function desktopInvoke<T>(command: string, args?: Record<string, unknown>): Prom
   return invoke<T>(command, args);
 }
 export const listProviders = () => desktopInvoke<ProviderSummary[]>("list_providers");
+export const checkForAppUpdates = () => desktopInvoke<UpdateInfo | null>("check_for_updates");
 export const openDataDirectory = () => desktopInvoke<void>("open_data_directory");
 export const openLogDirectory = () => desktopInvoke<void>("open_log_directory");
 export const clearLogs = () => desktopInvoke<void>("clear_logs");
