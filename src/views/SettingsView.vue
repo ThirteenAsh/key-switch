@@ -12,7 +12,7 @@ import type { UpdateInfo } from "../api/app";
 
 const dataDirectory = ref("正在读取本地数据目录");
 const logDirectory = ref("正在读取日志目录");
-const version = ref("v1.0.0-rc");
+const version = ref("v1.0.0-rc.1");
 const notice = ref("");
 const clearLogDialogOpen = ref(false);
 const checkingForUpdates = ref(false);

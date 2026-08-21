@@ -1,13 +1,13 @@
 {
   "name": "key-switch",
   "private": true,
-  "version": "1.0.0-rc",
+  "version": "1.0.0-rc.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
+    "tauri:build": "tauri -- build",
     "tauri:dev": "tauri dev"
   },
   "dependencies": {

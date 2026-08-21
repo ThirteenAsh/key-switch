@@ -1,6 +1,6 @@
 [package]
 name = "key-switch"
-version = "1.0.0-rc"
+version = "1.0.0-rc.1"
 description = "Key Switch desktop application"
 edition = "2021"
 
