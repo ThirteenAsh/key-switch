@@ -7,16 +7,17 @@ import appIcon from "../assets/key-switch.svg";
 import AppButton from "../components/ui/AppButton.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import UpdateAvailableDialog from "../components/UpdateAvailableDialog.vue";
-import { checkForAppUpdates, clearLogs, getAppInfo, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
+import { checkForAppUpdates, clearLogs, getAppInfo, installAppUpdate, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
 import type { UpdateInfo } from "../api/app";
 
 const dataDirectory = ref("正在读取本地数据目录");
 const logDirectory = ref("正在读取日志目录");
-const version = ref("v0.0.3-beta");
+const version = ref("v1.0.0-rc");
 const notice = ref("");
 const clearLogDialogOpen = ref(false);
 const checkingForUpdates = ref(false);
 const availableUpdate = ref<UpdateInfo | null>(null);
+const installingUpdate = ref(false);
 
 function notify(message: string) {
   notice.value = message;
@@ -70,6 +71,21 @@ async function openUpdateRelease() {
     await openUrl(url.href);
     availableUpdate.value = null;
   } catch { notify("无法打开版本下载页面"); }
+}
+
+function closeUpdateDialog() {
+  if (!installingUpdate.value) availableUpdate.value = null;
+}
+
+async function installAvailableUpdate() {
+  if (!availableUpdate.value || installingUpdate.value) return;
+  installingUpdate.value = true;
+  try {
+    await installAppUpdate(availableUpdate.value.releaseTag);
+  } catch {
+    notify("自动更新失败，可前往 GitHub Release 手动下载");
+    installingUpdate.value = false;
+  }
 }
 
 onMounted(async () => {
@@ -158,8 +174,10 @@ onMounted(async () => {
     <UpdateAvailableDialog
       :open="Boolean(availableUpdate)"
       :update="availableUpdate"
-      @close="availableUpdate = null"
-      @download="openUpdateRelease"
+      :installing="installingUpdate"
+      @close="closeUpdateDialog"
+      @install="installAvailableUpdate"
+      @release="openUpdateRelease"
     />
   </section>
 </template>

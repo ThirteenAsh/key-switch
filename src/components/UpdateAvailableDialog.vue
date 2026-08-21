@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { Download, ExternalLink, Sparkles, X } from "@lucide/vue";
 import type { UpdateInfo } from "../api/app";
 import AppButton from "./ui/AppButton.vue";
 
-defineProps<{ open: boolean; update: UpdateInfo | null }>();
-const emit = defineEmits<{ close: []; download: [] }>();
+const props = defineProps<{ open: boolean; update: UpdateInfo | null; installing?: boolean }>();
+const emit = defineEmits<{ close: []; install: []; release: [] }>();
+const channelLabel = computed(() => {
+  if (!props.update?.prerelease) return "Stable";
+  const identifier = props.update.latestVersion.split("-", 2)[1]?.split(".", 1)[0] ?? "RC";
+  return identifier.toUpperCase();
+});
 </script>
 
 <template>
@@ -17,25 +23,28 @@ const emit = defineEmits<{ close: []; download: [] }>();
             <div class="update-dialog__heading">
               <div class="update-dialog__title-row">
                 <h2 id="update-dialog-title">发现新版本 v{{ update.latestVersion }}</h2>
-                <span v-if="update.prerelease" class="update-dialog__tag">Alpha</span>
+                <span class="update-dialog__tag">{{ channelLabel }}</span>
               </div>
               <p>当前版本 v{{ update.currentVersion }}</p>
             </div>
-            <AppButton variant="ghost" size="icon-sm" aria-label="关闭" @click="emit('close')"><X :size="16" /></AppButton>
+            <AppButton variant="ghost" size="icon-sm" :disabled="installing" aria-label="关闭" @click="emit('close')"><X :size="16" /></AppButton>
           </header>
 
           <div class="update-dialog__body">
             <strong>{{ update.title }}</strong>
             <p v-if="update.notes" class="update-dialog__notes">{{ update.notes }}</p>
-            <p class="update-dialog__hint">Alpha 版本暂不支持应用内自动安装，请前往 GitHub Release 下载最新安装包。</p>
+            <p class="update-dialog__hint">安装前会验证更新签名。安装完成后应用将自动重启，本地 Key 和配置不会被删除。</p>
           </div>
 
           <footer>
-            <AppButton variant="secondary" @click="emit('close')">稍后</AppButton>
-            <AppButton variant="primary" @click="emit('download')">
+            <AppButton variant="ghost" :disabled="installing" @click="emit('close')">稍后</AppButton>
+            <AppButton variant="secondary" :disabled="installing" @click="emit('release')">
+              <ExternalLink :size="14" :stroke-width="2" />
+              GitHub Release
+            </AppButton>
+            <AppButton variant="primary" :loading="installing" @click="emit('install')">
               <Download :size="15" :stroke-width="2" />
-              前往下载
-              <ExternalLink :size="13" :stroke-width="2" />
+              下载并安装
             </AppButton>
           </footer>
         </section>
