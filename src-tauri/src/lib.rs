@@ -650,7 +650,12 @@ async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<()
     let update = tokio::time::timeout(DOWNLOAD_TIMEOUT, updater.check())
         .await
         .map_err(|_| {
-            let _ = append_log(&app, "WARN", "update_manifest_timeout", "timeout_seconds=90");
+            let _ = append_log(
+                &app,
+                "WARN",
+                "update_manifest_timeout",
+                "timeout_seconds=90",
+            );
             "更新下载超时，请检查网络后重试".to_string()
         })?
         .map_err(|e| format!("无法读取签名更新清单：{e}"))?
@@ -670,7 +675,12 @@ async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<()
     let update_bytes = tokio::time::timeout(DOWNLOAD_TIMEOUT, update.download(|_, _| {}, || {}))
         .await
         .map_err(|_| {
-            let _ = append_log(&app, "WARN", "update_download_timeout", "timeout_seconds=90");
+            let _ = append_log(
+                &app,
+                "WARN",
+                "update_download_timeout",
+                "timeout_seconds=90",
+            );
             "更新下载超时，请检查网络后重试".to_string()
         })?
         .map_err(|e| format!("更新下载或签名验证失败：{e}"))?;
