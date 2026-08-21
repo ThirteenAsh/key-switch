@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { storeToRefs } from "pinia";
 import { FileClock, FolderOpen, RefreshCw, Trash2 } from "@lucide/vue";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import githubIcon from "../assets/icons8-github.svg";
@@ -7,8 +8,9 @@ import appIcon from "../assets/key-switch.svg";
 import AppButton from "../components/ui/AppButton.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import UpdateAvailableDialog from "../components/UpdateAvailableDialog.vue";
-import { checkForAppUpdates, clearLogs, getAppInfo, installAppUpdate, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
+import { checkForAppUpdates, clearLogs, getAppInfo, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
 import type { UpdateInfo } from "../api/app";
+import { useUpdateStore } from "../stores/update";
 
 const dataDirectory = ref("正在读取本地数据目录");
 const logDirectory = ref("正在读取日志目录");
@@ -17,7 +19,8 @@ const notice = ref("");
 const clearLogDialogOpen = ref(false);
 const checkingForUpdates = ref(false);
 const availableUpdate = ref<UpdateInfo | null>(null);
-const installingUpdate = ref(false);
+const updateStore = useUpdateStore();
+const { installing: installingUpdate } = storeToRefs(updateStore);
 
 function notify(message: string) {
   notice.value = message;
@@ -79,13 +82,9 @@ function closeUpdateDialog() {
 
 async function installAvailableUpdate() {
   if (!availableUpdate.value || installingUpdate.value) return;
-  installingUpdate.value = true;
-  try {
-    await installAppUpdate(availableUpdate.value.releaseTag);
-  } catch {
-    notify("自动更新失败，可前往 GitHub Release 手动下载");
-    installingUpdate.value = false;
-  }
+  const releaseTag = availableUpdate.value.releaseTag;
+  availableUpdate.value = null;
+  void updateStore.install(releaseTag).catch(() => {});
 }
 
 onMounted(async () => {

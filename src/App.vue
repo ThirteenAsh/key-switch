@@ -31,19 +31,22 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import { storeToRefs } from "pinia";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { UpdateInfo } from "./api/app";
-import { checkForAppUpdates, installAppUpdate } from "./api/app";
+import { checkForAppUpdates } from "./api/app";
 import AppFooter from "./components/AppFooter.vue";
 import AppSidebar from "./components/AppSidebar.vue";
 import UpdateAvailableDialog from "./components/UpdateAvailableDialog.vue";
 import UpdateAvailableToast from "./components/UpdateAvailableToast.vue";
 import { useDashboardStore } from "./stores/dashboard";
+import { useUpdateStore } from "./stores/update";
 
 const store = useDashboardStore();
+const updateStore = useUpdateStore();
+const { installing: installingUpdate } = storeToRefs(updateStore);
 const availableUpdate = ref<UpdateInfo | null>(null);
 const updateDialogOpen = ref(false);
-const installingUpdate = ref(false);
 const notice = ref("");
 let noticeTimer: number | undefined;
 let updateToastTimer: number | undefined;
@@ -97,13 +100,9 @@ async function openUpdateRelease() {
 
 async function installAvailableUpdate() {
   if (!availableUpdate.value || installingUpdate.value) return;
-  installingUpdate.value = true;
-  try {
-    await installAppUpdate(availableUpdate.value.releaseTag);
-  } catch {
-    installingUpdate.value = false;
-    notify("自动更新失败，可前往 GitHub Release 手动下载");
-  }
+  const releaseTag = availableUpdate.value.releaseTag;
+  dismissUpdate();
+  void updateStore.install(releaseTag).catch(() => {});
 }
 
 onMounted(() => {

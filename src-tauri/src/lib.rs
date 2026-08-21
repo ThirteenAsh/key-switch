@@ -623,6 +623,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
 async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<(), String> {
     const RELEASE_TAG_PREFIX: &str = "v";
     const LEGACY_RELEASE_TAG_PREFIX: &str = "app-v";
+    const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(90);
 
     let tag_is_safe = release_tag.len() <= 64
         && release_tag
@@ -642,12 +643,16 @@ async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<()
         .updater_builder()
         .endpoints(vec![endpoint])
         .map_err(|e| format!("无法配置更新端点：{e}"))?
-        .timeout(Duration::from_secs(30))
+        // 单个 HTTP 请求的上限略高于业务层总超时，由业务层统一返回可识别的超时错误。
+        .timeout(Duration::from_secs(120))
         .build()
         .map_err(|e| format!("无法初始化自动更新：{e}"))?;
-    let update = updater
-        .check()
+    let update = tokio::time::timeout(DOWNLOAD_TIMEOUT, updater.check())
         .await
+        .map_err(|_| {
+            let _ = append_log(&app, "WARN", "update_manifest_timeout", "timeout_seconds=90");
+            "更新下载超时，请检查网络后重试".to_string()
+        })?
         .map_err(|e| format!("无法读取签名更新清单：{e}"))?
         .ok_or("该 Release 没有可安装的更新")?;
     let manifest_version =
@@ -662,10 +667,16 @@ async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<()
         "update_install_started",
         "signature_check=pending",
     );
-    update
-        .download_and_install(|_, _| {}, || {})
+    let update_bytes = tokio::time::timeout(DOWNLOAD_TIMEOUT, update.download(|_, _| {}, || {}))
         .await
-        .map_err(|e| format!("更新签名验证或安装失败：{e}"))?;
+        .map_err(|_| {
+            let _ = append_log(&app, "WARN", "update_download_timeout", "timeout_seconds=90");
+            "更新下载超时，请检查网络后重试".to_string()
+        })?
+        .map_err(|e| format!("更新下载或签名验证失败：{e}"))?;
+    update
+        .install(update_bytes)
+        .map_err(|e| format!("更新安装失败：{e}"))?;
     let _ = append_log(&app, "INFO", "update_installed", "restart=pending");
     app.restart();
 }

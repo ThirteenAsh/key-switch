@@ -30,12 +30,6 @@ const channelLabel = computed(() => {
             <AppButton variant="ghost" size="icon-sm" :disabled="installing" aria-label="关闭" @click="emit('close')"><X :size="16" /></AppButton>
           </header>
 
-          <div class="update-dialog__body">
-            <strong>{{ update.title }}</strong>
-            <p v-if="update.notes" class="update-dialog__notes">{{ update.notes }}</p>
-            <p class="update-dialog__hint">安装前会验证更新签名。安装完成后应用将自动重启，本地 Key 和配置不会被删除。</p>
-          </div>
-
           <footer>
             <AppButton variant="ghost" :disabled="installing" @click="emit('close')">稍后</AppButton>
             <AppButton variant="secondary" :disabled="installing" @click="emit('release')">
@@ -56,6 +50,6 @@ const channelLabel = computed(() => {
 <style scoped>
 .update-dialog-fade-enter-active,.update-dialog-fade-leave-active{transition:opacity .18s ease}.update-dialog-fade-enter-active .update-dialog,.update-dialog-fade-leave-active .update-dialog{transition:transform .22s cubic-bezier(.22,1,.36,1),opacity .18s ease}.update-dialog-fade-enter-from,.update-dialog-fade-leave-to{opacity:0}.update-dialog-fade-enter-from .update-dialog{opacity:0;transform:translateY(10px) scale(.97)}.update-dialog-fade-leave-to .update-dialog{opacity:0;transform:translateY(6px) scale(.98)}
 .update-dialog{width:480px;max-width:calc(100vw - 32px);padding:22px;border:1px solid rgba(226,232,240,.9);border-radius:18px;background:#fff;box-shadow:0 28px 70px -18px rgba(15,23,42,.3)}
-header{display:flex;align-items:flex-start;gap:12px}.update-dialog__icon{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;color:#4f46e5;border-radius:12px;background:#eef2ff}.update-dialog__heading{min-width:0;flex:1}.update-dialog__title-row{display:flex;align-items:center;gap:8px}h2,p{margin:0}h2{color:#0f172a;font-size:17px}.update-dialog__heading>p{margin-top:4px;color:#64748b;font-size:12.5px}.update-dialog__tag{padding:2px 6px;color:#b45309;border-radius:5px;background:#fffbeb;font-size:10px;font-weight:700;text-transform:uppercase}
-.update-dialog__body{display:grid;gap:10px;margin-top:20px;padding:14px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}.update-dialog__body strong{color:#334155;font-size:13px}.update-dialog__notes{max-height:112px;overflow:auto;color:#64748b;font-size:12.5px;line-height:1.65;white-space:pre-wrap}.update-dialog__hint{color:#475569;font-size:12px;line-height:1.6}footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+header{display:flex;align-items:flex-start;gap:12px}.update-dialog__icon{display:flex;flex:0 0 auto;padding-top:2px;color:#4f46e5}.update-dialog__heading{min-width:0;flex:1}.update-dialog__title-row{display:flex;align-items:center;gap:8px}h2,p{margin:0}h2{color:#0f172a;font-size:17px}.update-dialog__heading>p{margin-top:4px;color:#64748b;font-size:12.5px}.update-dialog__tag{padding:2px 6px;color:#b45309;border-radius:5px;background:#fffbeb;font-size:10px;font-weight:700;text-transform:uppercase}
+footer{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
 </style>

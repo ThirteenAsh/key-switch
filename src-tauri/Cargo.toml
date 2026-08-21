@@ -25,3 +25,4 @@ tauri-plugin-clipboard-manager = "2"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
 keyring = "4.1"
 tauri-plugin-updater = "2"
+tokio = { version = "1", features = ["time"] }
