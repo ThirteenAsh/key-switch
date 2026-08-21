@@ -8,7 +8,7 @@
 import { onMounted, ref } from "vue";
 import { getAppInfo } from "../api/app";
 
-const version = ref("v1.0.0-rc");
+const version = ref("v1.0.0-rc.1");
 
 onMounted(async () => {
   try {

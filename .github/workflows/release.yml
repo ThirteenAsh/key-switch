@@ -10,7 +10,7 @@ on:
       tag_name:
         description: 要创建的版本标签（必须以 v 开头）
         required: true
-        default: v1.0.0-rc
+        default: v1.0.0-rc.1
         type: string
 
 permissions:
@@ -78,6 +78,13 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag_name || github.ref_name }}
         run: node -e "const config=require('./src-tauri/tauri.conf.json');if(process.env.RELEASE_TAG!=='v'+config.version){console.error('Release tag must equal v'+config.version);process.exit(1)}"
 
+      - name: Render release notes
+        id: release_notes
+        env:
+          RELEASE_TAG: ${{ inputs.tag_name || github.ref_name }}
+        run: >
+          node -e "const fs=require('node:fs');const version=process.env.RELEASE_TAG.replace(/^v/,'');const body=fs.readFileSync('.github/release-notes.md','utf8').replaceAll('{{VERSION}}',version);fs.appendFileSync(process.env.GITHUB_OUTPUT,'body<<RELEASE_NOTES_EOF\n'+body+'\nRELEASE_NOTES_EOF\n');"
+
       - name: Build and create GitHub Release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -87,6 +94,7 @@ jobs:
         with:
           tagName: ${{ inputs.tag_name || github.ref_name }}
           releaseName: Key Switch ${{ inputs.tag_name || github.ref_name }}
+          releaseBody: ${{ steps.release_notes.outputs.body }}
           releaseDraft: true
           prerelease: ${{ contains(inputs.tag_name || github.ref_name, '-') }}
           args: ${{ matrix.args }}

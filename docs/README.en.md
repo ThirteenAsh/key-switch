@@ -23,7 +23,7 @@
   <a href="https://github.com/ThirteenAsh/key-switch/network/members">
     <img src="https://img.shields.io/github/forks/ThirteenAsh/key-switch?style=flat-square&label=forks" alt="GitHub Forks" />
   </a>
-  <img src="https://img.shields.io/badge/version-1.0.0--rc-f59e0b?style=flat-square" alt="Version 1.0.0-rc" />
+  <img src="https://img.shields.io/badge/version-1.0.0--rc.1-f59e0b?style=flat-square" alt="Version 1.0.0-rc.1" />
   <img src="https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
   <img src="https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white" alt="Vue 3" />
   <img src="https://img.shields.io/badge/Rust-2021-f46623?style=flat-square&logo=rust&logoColor=white" alt="Rust 2021" />
