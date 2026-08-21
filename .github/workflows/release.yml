@@ -10,7 +10,7 @@ on:
       tag_name:
         description: 要创建的版本标签（必须以 v 开头）
         required: true
-        default: v0.0.3-beta
+        default: v1.0.0-rc
         type: string
 
 permissions:
@@ -73,10 +73,17 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Validate release tag matches application version
+        env:
+          RELEASE_TAG: ${{ inputs.tag_name || github.ref_name }}
+        run: node -e "const config=require('./src-tauri/tauri.conf.json');if(process.env.RELEASE_TAG!=='v'+config.version){console.error('Release tag must equal v'+config.version);process.exit(1)}"
+
       - name: Build and create GitHub Release
-        uses: tauri-apps/tauri-action@v0.6.2
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ inputs.tag_name || github.ref_name }}
           releaseName: Key Switch ${{ inputs.tag_name || github.ref_name }}

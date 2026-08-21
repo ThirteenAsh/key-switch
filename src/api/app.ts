@@ -15,6 +15,7 @@ export interface UpdateInfo {
   releaseUrl: string;
   prerelease: boolean;
   publishedAt?: string;
+  releaseTag: string;
 }
 
 export async function getAppInfo(): Promise<AppInfo | null> {
@@ -28,6 +29,7 @@ function desktopInvoke<T>(command: string, args?: Record<string, unknown>): Prom
 }
 export const listProviders = () => desktopInvoke<ProviderSummary[]>("list_providers");
 export const checkForAppUpdates = () => desktopInvoke<UpdateInfo | null>("check_for_updates");
+export const installAppUpdate = (releaseTag: string) => desktopInvoke<void>("install_update", { releaseTag });
 export const openDataDirectory = () => desktopInvoke<void>("open_data_directory");
 export const openLogDirectory = () => desktopInvoke<void>("open_log_directory");
 export const clearLogs = () => desktopInvoke<void>("clear_logs");

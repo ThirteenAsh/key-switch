@@ -1,15 +1,15 @@
 # 更新基础设施
 
-当前 Alpha 版本仅检查 GitHub Releases：设置页会查询公开 Release，使用 SemVer 比较版本，发现新版本后引导用户前往 GitHub 下载。应用不会下载或安装更新。
+当前 RC 版本通过 GitHub Releases 检查更新：设置页查询公开 Release，使用 SemVer 比较版本，再从目标 Release 的 `latest.json` 下载并验证签名更新包。
 
-`tauri-plugin-updater` 的前端与 Rust 依赖已安装，但 Rust 侧通过 `AUTOMATIC_UPDATES_ENABLED = false` 保持未注册状态，能力文件也没有开放 Updater 权限；`bundle.createUpdaterArtifacts` 同样保持为 `false`。
+`tauri-plugin-updater` 仅在 Rust 侧注册，前端通过受控 Tauri 命令安装指定 Release，不开放通用 Updater 权限。发布构建通过 `bundle.createUpdaterArtifacts = true` 生成更新包、签名与清单。
 
-## 正式版启用自动更新
+## 发布要求
 
 1. 使用 Tauri CLI 生成并离线备份更新签名密钥；私钥及密码只保存到发布环境的 Secrets，公钥写入 `tauri.conf.json`。
-2. 配置 GitHub Release 中的 `latest.json` 更新端点，并将 `AUTOMATIC_UPDATES_ENABLED` 改为 `true`。
-3. 将 `bundle.createUpdaterArtifacts` 改为 `true`，在发布流水线中注入签名私钥。
-4. 在能力文件中加入 Updater 所需权限，并接入下载进度、用户确认、安装及重启流程。
-5. 完成 Windows 安装、签名失败、网络中断、版本回退与跨架构更新测试后，才可开放应用内安装。
+2. Git 标签必须与 `tauri.conf.json` 版本完全一致，例如 `v1.0.0-rc.1`。
+3. 发布流水线必须注入签名私钥，并上传每个平台的更新包、签名和 `latest.json`。
+4. Release 初始为草稿；检查附件完整后必须手动发布，客户端才能访问。
+5. 正式发布前完成 Windows 安装、签名失败、网络中断、版本回退与跨架构更新测试。
 
 签名私钥一旦用于首个正式版本，必须长期安全保管；不得提交到仓库、日志或发布附件。

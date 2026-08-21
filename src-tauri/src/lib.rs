@@ -11,6 +11,7 @@ use std::{
 };
 use tauri::Manager;
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_updater::UpdaterExt;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -109,6 +110,7 @@ struct UpdateInfo {
     release_url: String,
     prerelease: bool,
     published_at: Option<String>,
+    release_tag: String,
 }
 
 #[derive(Deserialize)]
@@ -253,7 +255,7 @@ const KEYRING_SERVICE: &str = "com.app.key-switch";
 const LOG_FILE_NAME: &str = "key-switch.log";
 const LOG_BACKUP_FILE_NAME: &str = "key-switch.log.1";
 const MAX_LOG_FILE_SIZE: u64 = 1024 * 1024;
-const AUTOMATIC_UPDATES_ENABLED: bool = false;
+const AUTOMATIC_UPDATES_ENABLED: bool = true;
 static LOG_LOCK: Mutex<()> = Mutex::new(());
 
 fn data_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -455,7 +457,7 @@ fn validation_client() -> Result<reqwest::Client, String> {
         .timeout(Duration::from_secs(10))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("Key-Switch/0.0.3-beta")
+        .user_agent("Key-Switch/1.0.0-rc")
         .build()
         .map_err(|e| format!("无法初始化网络客户端：{e}"))
 }
@@ -549,7 +551,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         .timeout(Duration::from_secs(12))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::limited(3))
-        .user_agent("Key-Switch-Update-Check/0.0.3-beta")
+        .user_agent("Key-Switch-Update-Check/1.0.0-rc")
         .build()
         .map_err(|e| format!("无法初始化更新检测客户端：{e}"))?;
     let response = client
@@ -611,9 +613,61 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         release_url: release.html_url,
         prerelease: release.prerelease,
         published_at: release.published_at,
+        release_tag: release.tag_name,
     };
     let _ = append_log(&app, "INFO", "update_checked", "available=true");
     Ok(Some(update))
+}
+
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<(), String> {
+    const RELEASE_TAG_PREFIX: &str = "v";
+    const LEGACY_RELEASE_TAG_PREFIX: &str = "app-v";
+
+    let tag_is_safe = release_tag.len() <= 64
+        && release_tag
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '-'))
+        && (release_tag.starts_with(RELEASE_TAG_PREFIX)
+            || release_tag.starts_with(LEGACY_RELEASE_TAG_PREFIX));
+    if !tag_is_safe {
+        return Err("更新版本标签无效".into());
+    }
+    let expected_version = SemVersion::parse(&release_tag).ok_or("更新版本不符合 SemVer 规范")?;
+    let endpoint = reqwest::Url::parse(&format!(
+        "https://github.com/ThirteenAsh/key-switch/releases/download/{release_tag}/latest.json"
+    ))
+    .map_err(|e| format!("无法生成更新清单地址：{e}"))?;
+    let updater = app
+        .updater_builder()
+        .endpoints(vec![endpoint])
+        .map_err(|e| format!("无法配置更新端点：{e}"))?
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("无法初始化自动更新：{e}"))?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| format!("无法读取签名更新清单：{e}"))?
+        .ok_or("该 Release 没有可安装的更新")?;
+    let manifest_version =
+        SemVersion::parse(&update.version).ok_or("签名更新清单中的版本不符合 SemVer 规范")?;
+    if manifest_version != expected_version {
+        return Err("Release 标签与签名更新清单版本不一致".into());
+    }
+
+    let _ = append_log(
+        &app,
+        "INFO",
+        "update_install_started",
+        "signature_check=pending",
+    );
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| format!("更新签名验证或安装失败：{e}"))?;
+    let _ = append_log(&app, "INFO", "update_installed", "restart=pending");
+    app.restart();
 }
 #[tauri::command]
 fn open_data_directory(app: tauri::AppHandle) -> Result<(), String> {
@@ -973,6 +1027,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             check_for_updates,
+            install_update,
             open_data_directory,
             open_log_directory,
             clear_logs,
