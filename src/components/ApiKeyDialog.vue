@@ -9,7 +9,16 @@ const props = withDefaults(defineProps<{ open: boolean; providerName: string; mo
 const emit = defineEmits<{ close: []; save: [payload: { remark: string; value: string }] }>();
 const remark = ref(""); const value = ref(""); const error = ref("");
 watch(() => props.open, (open) => { if (open) { remark.value = props.initialRemark; value.value = ""; error.value = ""; } });
-function submit() { if (!value.value.trim()) { error.value = "请输入 API Key"; return; } emit("save", { remark: remark.value.trim(), value: value.value.trim() }); }
+function submit() {
+  const nextRemark = remark.value.trim();
+  const nextValue = value.value.trim();
+  if (props.mode === "create" && !nextValue) { error.value = "请输入 API Key"; return; }
+  if (props.mode === "edit" && !nextValue && nextRemark === props.initialRemark.trim()) {
+    error.value = "请修改备注或输入新的 API Key";
+    return;
+  }
+  emit("save", { remark: nextRemark, value: nextValue });
+}
 </script>
 <template>
   <Teleport to="body">
@@ -19,9 +28,9 @@ function submit() { if (!value.value.trim()) { error.value = "请输入 API Key"
           <header><div><h2>{{ mode === 'edit' ? '编辑 API Key' : '添加 API Key' }}</h2><p>{{ providerName }}</p></div><AppButton variant="ghost" size="icon-sm" aria-label="关闭" @click="emit('close')"><X :size="16" :stroke-width="2" /></AppButton></header>
           <form @submit.prevent="submit">
             <label>备注<input v-model="remark" maxlength="64" placeholder="例如：开发环境" /></label>
-            <label>{{ mode === 'edit' ? '新的 API Key' : 'API Key' }}<input v-model="value" type="password" autocomplete="new-password" spellcheck="false" :placeholder="mode === 'edit' ? '输入新的 API Key' : '粘贴 API Key'" /></label>
+            <label>{{ mode === 'edit' ? '新的 API Key' : 'API Key' }}<input v-model="value" type="password" autocomplete="new-password" spellcheck="false" :placeholder="mode === 'edit' ? '可选' : '粘贴 API Key'" /></label>
             <p v-if="error" class="form-error">{{ error }}</p>
-            <footer><AppButton variant="secondary" type="button" @click="emit('close')">取消</AppButton><AppButton variant="primary" type="submit"><KeyRound :size="15" :stroke-width="2" />{{ mode === 'edit' ? '确认替换' : '保存 Key' }}</AppButton></footer>
+            <footer><AppButton variant="secondary" type="button" @click="emit('close')">取消</AppButton><AppButton variant="primary" type="submit"><KeyRound :size="15" :stroke-width="2" />{{ mode === 'edit' ? '保存修改' : '保存 Key' }}</AppButton></footer>
           </form>
         </section>
       </div>

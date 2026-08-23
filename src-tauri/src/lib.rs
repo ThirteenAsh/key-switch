@@ -457,7 +457,7 @@ fn validation_client() -> Result<reqwest::Client, String> {
         .timeout(Duration::from_secs(10))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("Key-Switch/1.0.0-rc.1")
+        .user_agent("Key-Switch/1.0.0")
         .build()
         .map_err(|e| format!("无法初始化网络客户端：{e}"))
 }
@@ -551,7 +551,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         .timeout(Duration::from_secs(12))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::limited(3))
-        .user_agent("Key-Switch-Update-Check/1.0.0-rc.1")
+        .user_agent("Key-Switch-Update-Check/1.0.0")
         .build()
         .map_err(|e| format!("无法初始化更新检测客户端：{e}"))?;
     let response = client
@@ -864,10 +864,6 @@ fn create_api_key(app: tauri::AppHandle, input: CreateKeyInput) -> Result<ApiKey
 
 #[tauri::command]
 fn update_api_key(app: tauri::AppHandle, input: UpdateKeyInput) -> Result<ApiKeySummary, String> {
-    if input.value.trim().is_empty() {
-        return Err("请输入新的 API Key".into());
-    }
-
     let mut data = load_data(&app)?;
     let key = data
         .providers
@@ -875,20 +871,30 @@ fn update_api_key(app: tauri::AppHandle, input: UpdateKeyInput) -> Result<ApiKey
         .flat_map(|provider| &mut provider.keys)
         .find(|key| key.id == input.id)
         .ok_or("未找到 API Key")?;
+    let next_remark = if input.remark.trim().is_empty() {
+        "未命名 Key".into()
+    } else {
+        input.remark.trim().into()
+    };
+    let next_value = input.value.trim();
+
+    if next_value.is_empty() {
+        key.remark = next_remark;
+        let result = key_summary(key)?;
+        save_data(&app, &data)?;
+        let _ = append_log(&app, "INFO", "api_key_remark_updated", "success");
+        return Ok(result);
+    }
+
     let entry = keyring_entry(&key.secret_id)?;
     let previous_value = entry
         .get_password()
         .map_err(|e| format!("无法读取系统密钥库中的 API Key：{e}"))?;
 
-    let next_value = input.value.trim();
     entry
         .set_password(next_value)
         .map_err(|e| format!("无法写入系统密钥库：{e}"))?;
-    key.remark = if input.remark.trim().is_empty() {
-        "未命名 Key".into()
-    } else {
-        input.remark.trim().into()
-    };
+    key.remark = next_remark;
     key.status = "untested".into();
     key.last_checked_at = None;
     let result = ApiKeySummary {

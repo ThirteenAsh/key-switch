@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onUnmounted, nextTick } from "vue";
 import {
-  ChevronDown,
   ChevronRight,
   Copy,
   Trash2,
@@ -102,15 +101,16 @@ async function saveKey(payload: { remark: string; value: string }) {
   if (!keyDialogProvider.value) return;
   try {
     if (editingKey.value) {
+      const keyWasReplaced = Boolean(payload.value);
       await store.replaceKey(keyDialogProvider.value.id, { id: editingKey.value.id, ...payload });
       closeKeyDialog();
-      notify("API Key 已替换");
+      notify(keyWasReplaced ? "API Key 已替换" : "备注已保存");
     } else {
       await store.addKey({ providerId: keyDialogProvider.value.id, ...payload });
       closeKeyDialog();
       notify("API Key 已保存");
     }
-  } catch { notify(editingKey.value ? "替换 API Key 失败" : "保存 API Key 失败"); }
+  } catch { notify(editingKey.value ? "保存修改失败" : "保存 API Key 失败"); }
 }
 
 function requestDeleteKey(providerId: string, keyId: string) { deleteTarget.value = { providerId, keyId }; }
@@ -636,23 +636,30 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
               </button>
 
               <div class="provider-actions" @click.stop>
-                <AppButton
-                  v-if="store.expandedProviderId === provider.id"
-                  variant="secondary"
-                  size="sm"
-                  @click="openCreateKeyDialog(provider)"
-                >
-                  <Plus :size="13" :stroke-width="2.2" />
-                  <span>添加 Key</span>
-                </AppButton>
+                <Transition name="provider-add-key">
+                  <div v-if="store.expandedProviderId === provider.id" class="provider-add-key-slot">
+                    <AppButton
+                      variant="secondary"
+                      size="sm"
+                      @click="openCreateKeyDialog(provider)"
+                    >
+                      <Plus :size="13" :stroke-width="2.2" />
+                      <span>添加 Key</span>
+                    </AppButton>
+                  </div>
+                </Transition>
                 <AppButton
                   variant="ghost"
                   size="icon-sm"
                   :aria-label="store.expandedProviderId === provider.id ? '收起' : '展开'"
                   @click="store.toggleProvider(provider.id)"
                 >
-                  <ChevronDown v-if="store.expandedProviderId === provider.id" :size="16" :stroke-width="2" />
-                  <ChevronRight v-else :size="16" :stroke-width="2" />
+                  <ChevronRight
+                    class="provider-chevron"
+                    :class="{ 'provider-chevron--expanded': store.expandedProviderId === provider.id }"
+                    :size="16"
+                    :stroke-width="2"
+                  />
                 </AppButton>
               </div>
             </div>
@@ -832,6 +839,47 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
 
 .is-spinning {
   animation: spin 0.8s linear infinite;
+}
+
+.provider-actions {
+  gap: 0;
+}
+
+.provider-add-key-slot {
+  display: flex;
+  max-width: 112px;
+  margin-right: 6px;
+  overflow: hidden;
+  transform-origin: right center;
+}
+
+.provider-add-key-slot :deep(.app-btn) {
+  flex: 0 0 auto;
+}
+
+.provider-add-key-enter-active,
+.provider-add-key-leave-active {
+  transition:
+    max-width 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    margin-right 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.16s ease,
+    transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.provider-add-key-enter-from,
+.provider-add-key-leave-to {
+  max-width: 0;
+  margin-right: 0;
+  opacity: 0;
+  transform: translateX(8px) scale(0.96);
+}
+
+.provider-chevron {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.provider-chevron--expanded {
+  transform: rotate(90deg);
 }
 
 @keyframes spin {

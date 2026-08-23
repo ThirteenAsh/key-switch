@@ -24,7 +24,7 @@ import { LoaderCircle, TriangleAlert } from "@lucide/vue";
 import { getAppInfo } from "../api/app";
 import { useUpdateStore } from "../stores/update";
 
-const version = ref("v1.0.0-rc.1");
+const version = ref("v1.0.0");
 const updateStore = useUpdateStore();
 
 onMounted(async () => {
