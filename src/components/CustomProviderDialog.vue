@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { ImagePlus, Plus, Trash2, X } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
 
 const props = defineProps<{ open: boolean }>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];
@@ -36,12 +38,12 @@ function handleAvatarChange(event: Event) {
 
   const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
   if (!allowedTypes.includes(file.type)) {
-    error.value = "头像仅支持 PNG、JPG 或 WebP 图片";
+    error.value = t("providerDialog.errors.invalidAvatarType");
     input.value = "";
     return;
   }
   if (file.size > 2 * 1024 * 1024) {
-    error.value = "头像图片不能超过 2MB";
+    error.value = t("providerDialog.errors.avatarTooLarge");
     input.value = "";
     return;
   }
@@ -52,7 +54,7 @@ function handleAvatarChange(event: Event) {
     error.value = "";
   };
   reader.onerror = () => {
-    error.value = "读取头像失败，请重新选择图片";
+    error.value = t("providerDialog.errors.avatarReadFailed");
   };
   reader.readAsDataURL(file);
 }
@@ -74,11 +76,11 @@ function submit() {
   const normalizedName = name.value.trim();
   const normalizedPlatformUrl = ensureHttpsPrefix();
   if (!normalizedName) {
-    error.value = "请输入供应商名称";
+    error.value = t("providerDialog.errors.nameRequired");
     return;
   }
   if (!normalizedPlatformUrl) {
-    error.value = "请输入平台管理地址";
+    error.value = t("providerDialog.errors.platformUrlRequired");
     return;
   }
 
@@ -86,7 +88,7 @@ function submit() {
     const parsedUrl = new URL(normalizedPlatformUrl);
     if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") throw new Error();
   } catch {
-    error.value = "请输入有效的 http 或 https 地址";
+    error.value = t("providerDialog.errors.invalidUrl");
     return;
   }
 
@@ -101,49 +103,49 @@ function submit() {
         <section class="custom-provider-dialog" role="dialog" aria-modal="true" aria-labelledby="custom-provider-title">
           <header>
             <div>
-              <h2 id="custom-provider-title">新增自定义供应商</h2>
-              <p>配置供应商名称、接口地址和可选头像。</p>
+              <h2 id="custom-provider-title">{{ t("providerDialog.customTitle") }}</h2>
+              <p>{{ t("providerDialog.customDescription") }}</p>
             </div>
-            <AppButton variant="ghost" size="icon-sm" aria-label="关闭" @click="emit('close')">
+            <AppButton variant="ghost" size="icon-sm" :aria-label="t('common.close')" @click="emit('close')">
               <X :size="15" :stroke-width="2" />
             </AppButton>
           </header>
 
           <form @submit.prevent="submit">
             <div class="avatar-field">
-              <span class="field-label">供应商头像</span>
+              <span class="field-label">{{ t("providerDialog.avatar") }}</span>
               <div class="avatar-picker">
-                <img v-if="logo" :src="logo" alt="已选择的供应商头像" />
+                <img v-if="logo" :src="logo" :alt="t('common.selectedProviderAvatarAlt')" />
                 <ImagePlus v-else :size="22" :stroke-width="1.8" aria-hidden="true" />
                 <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" @change="handleAvatarChange" />
                 <div class="avatar-actions">
                   <AppButton variant="secondary" size="sm" type="button" @click="selectAvatar">
                     <ImagePlus :size="14" :stroke-width="2" />
-                    <span>{{ logo ? "更换图片" : "上传图片" }}</span>
+                    <span>{{ t(logo ? "common.replaceImage" : "common.uploadImage") }}</span>
                   </AppButton>
-                  <AppButton v-if="logo" variant="ghost" size="icon-sm" type="button" aria-label="移除头像" @click="removeAvatar">
+                  <AppButton v-if="logo" variant="ghost" size="icon-sm" type="button" :aria-label="t('common.removeAvatar')" @click="removeAvatar">
                     <Trash2 :size="14" :stroke-width="2" />
                   </AppButton>
                 </div>
               </div>
-              <small>可选，支持 PNG、JPG、WebP，最大 2MB。</small>
+              <small>{{ t("providerDialog.avatarHelpOptional") }}</small>
             </div>
 
             <label>
-              <span class="field-label">供应商名称</span>
-              <input v-model="name" maxlength="64" placeholder="例如：公司内部模型网关 / OneAPI" autocomplete="off" autofocus />
+              <span class="field-label">{{ t("providerDialog.name") }}</span>
+              <input v-model="name" maxlength="64" :placeholder="t('providerDialog.namePlaceholder')" autocomplete="off" autofocus />
             </label>
             <label>
-              <span class="field-label">平台管理地址</span>
+              <span class="field-label">{{ t("providerDialog.platformUrl") }}</span>
               <input v-model="platformUrl" type="text" inputmode="url" placeholder="https://platform.example.com" autocomplete="url" @blur="ensureHttpsPrefix" />
             </label>
 
             <p v-if="error" class="form-error" role="alert">{{ error }}</p>
             <footer>
-              <AppButton variant="secondary" type="button" @click="emit('close')">取消</AppButton>
+              <AppButton variant="secondary" type="button" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
               <AppButton variant="primary" type="submit">
                 <Plus :size="15" :stroke-width="2.2" />
-                <span>新增供应商</span>
+                <span>{{ t("providerDialog.addProvider") }}</span>
               </AppButton>
             </footer>
           </form>

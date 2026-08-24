@@ -4,15 +4,15 @@
     <Transition name="footer-status" mode="out-in">
       <p v-if="updateStore.installStatus === 'downloading'" key="downloading" class="update-status update-status--downloading" role="status">
         <LoaderCircle :size="13" aria-hidden="true" />
-        正在下载更新
+        {{ t("update.downloading") }}
       </p>
       <p v-else-if="updateStore.installStatus === 'timeout'" key="timeout" class="update-status update-status--warning" role="alert">
         <TriangleAlert :size="13" aria-hidden="true" />
-        下载超时，请检查网络后重试
+        {{ t("update.timeout") }}
       </p>
       <p v-else-if="updateStore.installStatus === 'failed'" key="failed" class="update-status update-status--warning" role="alert">
         <TriangleAlert :size="13" aria-hidden="true" />
-        更新下载失败，请稍后重试
+        {{ t("update.failed") }}
       </p>
     </Transition>
   </footer>
@@ -21,11 +21,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { LoaderCircle, TriangleAlert } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import { getAppInfo } from "../api/app";
 import { useUpdateStore } from "../stores/update";
 
 const version = ref("v1.0.0");
 const updateStore = useUpdateStore();
+const { t } = useI18n();
 
 onMounted(async () => {
   try {

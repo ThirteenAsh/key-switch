@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ArrowRight, Sparkles, X } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import type { UpdateInfo } from "../api/app";
 import AppButton from "./ui/AppButton.vue";
 
 defineProps<{ update: UpdateInfo | null }>();
 const emit = defineEmits<{ close: []; view: [] }>();
+const { t } = useI18n();
 </script>
 
 <template>
@@ -15,14 +17,14 @@ const emit = defineEmits<{ close: []; view: [] }>();
           <Sparkles :size="18" :stroke-width="2" />
         </span>
         <div class="update-toast__content">
-          <strong>发现新版本 v{{ update.latestVersion }}</strong>
-          <span>当前版本 v{{ update.currentVersion }}</span>
+          <strong>{{ t("update.available", { version: update.latestVersion }) }}</strong>
+          <span>{{ t("update.current", { version: update.currentVersion }) }}</span>
           <AppButton variant="ghost" size="sm" @click="emit('view')">
-            查看更新
+            {{ t("update.view") }}
             <ArrowRight :size="14" :stroke-width="2" />
           </AppButton>
         </div>
-        <AppButton class="update-toast__close" variant="ghost" size="icon-sm" aria-label="稍后提醒" @click="emit('close')">
+        <AppButton class="update-toast__close" variant="ghost" size="icon-sm" :aria-label="t('update.remindLater')" @click="emit('close')">
           <X :size="15" />
         </AppButton>
       </aside>

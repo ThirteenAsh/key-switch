@@ -1,6 +1,7 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { installAppUpdate } from "../api/app";
+import { getAppErrorCode } from "../i18n/errors";
 
 export type UpdateInstallStatus = "idle" | "downloading" | "timeout" | "failed";
 
@@ -22,8 +23,7 @@ export const useUpdateStore = defineStore("update", () => {
     try {
       await installAppUpdate(releaseTag);
     } catch (error) {
-      const message = String(error);
-      setTemporaryStatus(message.includes("更新下载超时") ? "timeout" : "failed");
+      setTemporaryStatus(getAppErrorCode(error) === "UPDATE_DOWNLOAD_TIMEOUT" ? "timeout" : "failed");
       throw error;
     }
   }

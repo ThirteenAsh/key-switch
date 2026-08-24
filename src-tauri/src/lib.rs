@@ -21,6 +21,136 @@ struct AppInfo {
     log_directory: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CommandError {
+    code: &'static str,
+}
+
+impl CommandError {
+    fn from_message(message: &str) -> Self {
+        Self {
+            code: command_error_code(message),
+        }
+    }
+}
+
+impl From<String> for CommandError {
+    fn from(message: String) -> Self {
+        Self::from_message(&message)
+    }
+}
+
+impl From<&str> for CommandError {
+    fn from(message: &str) -> Self {
+        Self::from_message(message)
+    }
+}
+
+fn command_error_code(message: &str) -> &'static str {
+    if message.starts_with("无法解析应用数据目录") {
+        "DATA_DIRECTORY_UNAVAILABLE"
+    } else if message.starts_with("无法创建日志目录")
+        || message.starts_with("无法创建目录")
+        || message.starts_with("无法创建应用数据目录")
+    {
+        "DIRECTORY_CREATE_FAILED"
+    } else if message.starts_with("日志写入锁不可用")
+        || message.starts_with("无法轮转")
+        || message.starts_with("无法打开日志文件")
+        || message.starts_with("无法写入日志")
+    {
+        "LOG_UNAVAILABLE"
+    } else if message.starts_with("无法打开目录") {
+        "DIRECTORY_OPEN_FAILED"
+    } else if message.starts_with("无法读取本地数据") {
+        "DATA_READ_FAILED"
+    } else if message.starts_with("本地数据格式错误") {
+        "DATA_INVALID"
+    } else if message.starts_with("无法序列化本地数据") || message.starts_with("无法保存本地数据")
+    {
+        "DATA_SAVE_FAILED"
+    } else if message.starts_with("系统密钥库不可用") {
+        "KEYRING_UNAVAILABLE"
+    } else if message.starts_with("无法读取系统密钥库") {
+        "KEYRING_READ_FAILED"
+    } else if message.starts_with("无法写入系统密钥库") {
+        "KEYRING_WRITE_FAILED"
+    } else if message.starts_with("无法从系统密钥库删除") {
+        "KEYRING_DELETE_FAILED"
+    } else if message.starts_with("无法初始化网络客户端") {
+        "NETWORK_CLIENT_FAILED"
+    } else if message.starts_with("当前应用版本不符合")
+        || message.starts_with("更新版本不符合")
+        || message.starts_with("签名更新清单中的版本不符合")
+    {
+        "VERSION_INVALID"
+    } else if message.starts_with("GitHub Releases 响应过大") {
+        "UPDATE_RESPONSE_TOO_LARGE"
+    } else if message.starts_with("GitHub Releases 数据格式错误") {
+        "UPDATE_DATA_INVALID"
+    } else if message.starts_with("无法初始化更新检测客户端")
+        || message.starts_with("无法连接 GitHub Releases")
+        || message.starts_with("GitHub Releases 返回异常状态")
+        || message.starts_with("无法读取 GitHub Releases 响应")
+    {
+        "UPDATE_CHECK_FAILED"
+    } else if message.starts_with("更新版本标签无效") {
+        "UPDATE_TAG_INVALID"
+    } else if message.starts_with("无法生成更新清单地址")
+        || message.starts_with("无法配置更新端点")
+        || message.starts_with("无法初始化自动更新")
+        || message.starts_with("无法读取签名更新清单")
+    {
+        "UPDATE_MANIFEST_FAILED"
+    } else if message.starts_with("更新下载超时") {
+        "UPDATE_DOWNLOAD_TIMEOUT"
+    } else if message.starts_with("该 Release 没有可安装的更新") {
+        "UPDATE_NOT_AVAILABLE"
+    } else if message.starts_with("Release 标签与签名更新清单版本不一致") {
+        "UPDATE_DATA_INVALID"
+    } else if message.starts_with("更新下载或签名验证失败") {
+        "UPDATE_DOWNLOAD_FAILED"
+    } else if message.starts_with("更新安装失败") {
+        "UPDATE_INSTALL_FAILED"
+    } else if message.starts_with("无法清空日志") {
+        "LOG_CLEAR_FAILED"
+    } else if message.starts_with("供应商名称不能为空") {
+        "PROVIDER_NAME_REQUIRED"
+    } else if message.starts_with("供应商名称已存在") {
+        "PROVIDER_NAME_EXISTS"
+    } else if message.starts_with("供应商已存在") {
+        "PROVIDER_EXISTS"
+    } else if message.starts_with("未找到供应商") {
+        "PROVIDER_NOT_FOUND"
+    } else if message.starts_with("供应商排序数据不完整") {
+        "PROVIDER_ORDER_INVALID"
+    } else if message.starts_with("API Key 不能为空") {
+        "API_KEY_REQUIRED"
+    } else if message.starts_with("未找到 API Key") {
+        "API_KEY_NOT_FOUND"
+    } else if message.starts_with("无法写入剪贴板") {
+        "CLIPBOARD_WRITE_FAILED"
+    } else if message.starts_with("无法读取设置文件") {
+        "SETTINGS_READ_FAILED"
+    } else if message.starts_with("设置文件格式错误")
+        || message.starts_with("设置文件版本不受支持")
+        || message.starts_with("语言设置无效")
+    {
+        "SETTINGS_INVALID"
+    } else if message.starts_with("无法序列化设置文件")
+        || message.starts_with("无法保存设置文件")
+        || message.starts_with("无法写入设置临时文件")
+        || message.starts_with("无法备份设置文件")
+        || message.starts_with("无法替换设置文件")
+        || message.starts_with("无法恢复设置文件")
+    {
+        "SETTINGS_SAVE_FAILED"
+    } else {
+        "UNKNOWN"
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ApiKeyRecord {
@@ -48,6 +178,23 @@ struct ProviderRecord {
 #[derive(Default, Serialize, Deserialize)]
 struct AppData {
     providers: Vec<ProviderRecord>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+// 仅保存非敏感应用偏好；API Key 等凭据仍必须保留在系统密钥库中。
+struct AppSettings {
+    schema_version: u32,
+    locale_preference: String,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            schema_version: SETTINGS_SCHEMA_VERSION,
+            locale_preference: "system".into(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -254,9 +401,14 @@ fn now() -> String {
 const KEYRING_SERVICE: &str = "com.app.key-switch";
 const LOG_FILE_NAME: &str = "key-switch.log";
 const LOG_BACKUP_FILE_NAME: &str = "key-switch.log.1";
+const SETTINGS_FILE_NAME: &str = "settings.json";
+const SETTINGS_BACKUP_FILE_NAME: &str = "settings.json.bak";
+const SETTINGS_TEMP_FILE_NAME: &str = "settings.json.tmp";
+const SETTINGS_SCHEMA_VERSION: u32 = 1;
 const MAX_LOG_FILE_SIZE: u64 = 1024 * 1024;
 const AUTOMATIC_UPDATES_ENABLED: bool = true;
 static LOG_LOCK: Mutex<()> = Mutex::new(());
+static SETTINGS_LOCK: Mutex<()> = Mutex::new(());
 
 fn data_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app
@@ -264,6 +416,114 @@ fn data_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .app_data_dir()
         .map_err(|e| format!("无法解析应用数据目录：{e}"))?
         .join("key-switch-data.json"))
+}
+
+fn settings_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("无法解析应用数据目录：{e}"))?
+        .join(SETTINGS_FILE_NAME))
+}
+
+fn settings_backup_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(settings_file(app)?
+        .parent()
+        .ok_or("无法创建应用数据目录")?
+        .join(SETTINGS_BACKUP_FILE_NAME))
+}
+
+fn valid_locale_preference(value: &str) -> bool {
+    matches!(value, "system" | "zh-CN" | "zh-TW" | "en-US" | "ja-JP")
+}
+
+fn validate_settings(settings: &AppSettings) -> Result<(), String> {
+    if settings.schema_version != SETTINGS_SCHEMA_VERSION {
+        return Err(format!("设置文件版本不受支持：{}", settings.schema_version));
+    }
+    if !valid_locale_preference(&settings.locale_preference) {
+        return Err("语言设置无效".into());
+    }
+    Ok(())
+}
+
+fn load_settings(app: &tauri::AppHandle) -> Result<AppSettings, String> {
+    let file = settings_file(app)?;
+    load_settings_from_file(&file)
+}
+
+fn load_settings_from_file(file: &PathBuf) -> Result<AppSettings, String> {
+    let directory = file.parent().ok_or("无法创建应用数据目录")?;
+    let backup = directory.join(SETTINGS_BACKUP_FILE_NAME);
+
+    if !file.exists() && backup.exists() {
+        let temporary = file
+            .parent()
+            .ok_or("无法创建应用数据目录")?
+            .join(SETTINGS_TEMP_FILE_NAME);
+        if temporary.exists() {
+            fs::rename(&temporary, &file).map_err(|e| format!("无法恢复设置文件：{e}"))?;
+            let _ = fs::remove_file(&backup);
+        } else {
+            fs::rename(&backup, &file).map_err(|e| format!("无法恢复设置文件：{e}"))?;
+        }
+    }
+
+    let content = fs::read_to_string(&file).map_err(|e| format!("无法读取设置文件：{e}"))?;
+    let settings: AppSettings =
+        serde_json::from_str(&content).map_err(|e| format!("设置文件格式错误：{e}"))?;
+    validate_settings(&settings)?;
+    Ok(settings)
+}
+
+fn save_settings(app: &tauri::AppHandle, settings: &AppSettings) -> Result<(), String> {
+    let file = settings_file(app)?;
+    save_settings_to_file(&file, settings)
+}
+
+fn save_settings_to_file(file: &PathBuf, settings: &AppSettings) -> Result<(), String> {
+    validate_settings(settings)?;
+    let directory = file.parent().ok_or("无法创建应用数据目录")?;
+    fs::create_dir_all(directory).map_err(|e| format!("无法创建应用数据目录：{e}"))?;
+
+    let serialized =
+        serde_json::to_string_pretty(settings).map_err(|e| format!("无法序列化设置文件：{e}"))?;
+    let temporary = directory.join(SETTINGS_TEMP_FILE_NAME);
+    let backup = directory.join(SETTINGS_BACKUP_FILE_NAME);
+    let mut output = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&temporary)
+        .map_err(|e| format!("无法写入设置临时文件：{e}"))?;
+    output
+        .write_all(serialized.as_bytes())
+        .and_then(|_| output.sync_all())
+        .map_err(|e| format!("无法写入设置临时文件：{e}"))?;
+    drop(output);
+
+    if backup.exists() {
+        fs::remove_file(&backup).map_err(|e| format!("无法备份设置文件：{e}"))?;
+    }
+    let had_existing_file = file.exists();
+    if had_existing_file {
+        fs::rename(&file, &backup).map_err(|e| format!("无法备份设置文件：{e}"))?;
+    }
+
+    if let Err(error) = fs::rename(&temporary, &file) {
+        if had_existing_file && backup.exists() {
+            fs::rename(&backup, &file).map_err(|restore_error| {
+                format!("无法恢复设置文件：{restore_error}；原始错误：{error}")
+            })?;
+        }
+        let _ = fs::remove_file(&temporary);
+        return Err(format!("无法替换设置文件：{error}"));
+    }
+
+    if backup.exists() {
+        let _ = fs::remove_file(backup);
+    }
+    Ok(())
 }
 
 fn log_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -486,8 +746,14 @@ async fn validate_key(client: &reqwest::Client, provider_id: &str, value: &str) 
 
 #[cfg(test)]
 mod tests {
-    use super::{classify_validation_status, SemVersion};
+    use super::{
+        classify_validation_status, command_error_code, load_settings_from_file,
+        save_settings_to_file, valid_locale_preference, AppSettings, SemVersion,
+        SETTINGS_BACKUP_FILE_NAME, SETTINGS_FILE_NAME, SETTINGS_SCHEMA_VERSION,
+        SETTINGS_TEMP_FILE_NAME,
+    };
     use reqwest::StatusCode;
+    use std::{fs, process};
 
     #[test]
     fn classifies_key_validation_responses() {
@@ -520,10 +786,121 @@ mod tests {
         assert!(stable > next_alpha);
         assert!(SemVersion::parse("invalid").is_none());
     }
+
+    #[test]
+    fn maps_internal_errors_to_stable_command_codes() {
+        assert_eq!(
+            command_error_code("更新下载超时，请检查网络后重试"),
+            "UPDATE_DOWNLOAD_TIMEOUT"
+        );
+        assert_eq!(
+            command_error_code("供应商名称已存在"),
+            "PROVIDER_NAME_EXISTS"
+        );
+        assert_eq!(
+            command_error_code("无法保存设置文件：disk full"),
+            "SETTINGS_SAVE_FAILED"
+        );
+        assert_eq!(command_error_code("unexpected"), "UNKNOWN");
+    }
+
+    #[test]
+    fn validates_supported_locale_preferences() {
+        for locale in ["system", "zh-CN", "zh-TW", "en-US", "ja-JP"] {
+            assert!(valid_locale_preference(locale));
+        }
+        assert!(!valid_locale_preference("fr-FR"));
+    }
+
+    #[test]
+    fn fills_missing_settings_fields_with_schema_defaults() {
+        let settings: AppSettings =
+            serde_json::from_str(r#"{"localePreference":"en-US"}"#).unwrap();
+        assert_eq!(settings.schema_version, SETTINGS_SCHEMA_VERSION);
+        assert_eq!(settings.locale_preference, "en-US");
+    }
+
+    #[test]
+    fn persists_settings_and_recovers_an_interrupted_replacement() {
+        let directory = std::env::temp_dir().join(format!(
+            "key-switch-settings-test-{}-{}",
+            process::id(),
+            super::now()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let file = directory.join(SETTINGS_FILE_NAME);
+        let initial = AppSettings {
+            schema_version: SETTINGS_SCHEMA_VERSION,
+            locale_preference: "en-US".into(),
+        };
+        save_settings_to_file(&file, &initial).unwrap();
+        assert_eq!(
+            load_settings_from_file(&file).unwrap().locale_preference,
+            "en-US"
+        );
+
+        let replacement = AppSettings {
+            schema_version: SETTINGS_SCHEMA_VERSION,
+            locale_preference: "ja-JP".into(),
+        };
+        fs::write(
+            directory.join(SETTINGS_TEMP_FILE_NAME),
+            serde_json::to_string_pretty(&replacement).unwrap(),
+        )
+        .unwrap();
+        fs::rename(&file, directory.join(SETTINGS_BACKUP_FILE_NAME)).unwrap();
+        assert_eq!(
+            load_settings_from_file(&file).unwrap().locale_preference,
+            "ja-JP"
+        );
+
+        fs::remove_dir_all(directory).unwrap();
+    }
 }
 
 #[tauri::command]
-fn get_app_info(app: tauri::AppHandle) -> Result<AppInfo, String> {
+fn load_app_settings(
+    app: tauri::AppHandle,
+    legacy_locale_preference: Option<String>,
+) -> Result<AppSettings, CommandError> {
+    let _guard = SETTINGS_LOCK
+        .lock()
+        .map_err(|_| CommandError::from("无法读取设置文件：设置锁不可用"))?;
+    let file = settings_file(&app)?;
+    let backup = settings_backup_file(&app)?;
+
+    let settings = if file.exists() || backup.exists() {
+        load_settings(&app)?
+    } else {
+        let mut settings = AppSettings::default();
+        if let Some(preference) = legacy_locale_preference {
+            if valid_locale_preference(&preference) {
+                settings.locale_preference = preference;
+            }
+        }
+        save_settings(&app, &settings)?;
+        let _ = append_log(&app, "INFO", "settings_initialized", "success");
+        settings
+    };
+
+    Ok(settings)
+}
+
+#[tauri::command]
+fn save_app_settings(
+    app: tauri::AppHandle,
+    settings: AppSettings,
+) -> Result<AppSettings, CommandError> {
+    let _guard = SETTINGS_LOCK
+        .lock()
+        .map_err(|_| CommandError::from("无法写入设置临时文件：设置锁不可用"))?;
+    save_settings(&app, &settings)?;
+    let _ = append_log(&app, "INFO", "settings_saved", "success");
+    Ok(settings)
+}
+
+#[tauri::command]
+fn get_app_info(app: tauri::AppHandle) -> Result<AppInfo, CommandError> {
     let log_directory = log_directory(&app)?;
     Ok(AppInfo {
         version: app.package_info().version.to_string(),
@@ -538,7 +915,7 @@ fn get_app_info(app: tauri::AppHandle) -> Result<AppInfo, String> {
 }
 
 #[tauri::command]
-async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
+async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, CommandError> {
     const RELEASES_API: &str =
         "https://api.github.com/repos/ThirteenAsh/key-switch/releases?per_page=20";
     const RELEASE_URL_PREFIX: &str = "https://github.com/ThirteenAsh/key-switch/releases/";
@@ -562,10 +939,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         .await
         .map_err(|e| format!("无法连接 GitHub Releases：{e}"))?;
     if !response.status().is_success() {
-        return Err(format!(
-            "GitHub Releases 返回异常状态：{}",
-            response.status()
-        ));
+        return Err(format!("GitHub Releases 返回异常状态：{}", response.status()).into());
     }
     if response.content_length().unwrap_or(0) > MAX_RESPONSE_SIZE as u64 {
         return Err("GitHub Releases 响应过大".into());
@@ -620,7 +994,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
 }
 
 #[tauri::command]
-async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<(), String> {
+async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<(), CommandError> {
     const RELEASE_TAG_PREFIX: &str = "v";
     const LEGACY_RELEASE_TAG_PREFIX: &str = "app-v";
     const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(90);
@@ -691,7 +1065,7 @@ async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<()
     app.restart();
 }
 #[tauri::command]
-fn open_data_directory(app: tauri::AppHandle) -> Result<(), String> {
+fn open_data_directory(app: tauri::AppHandle) -> Result<(), CommandError> {
     let directory = app
         .path()
         .app_data_dir()
@@ -702,14 +1076,14 @@ fn open_data_directory(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_log_directory(app: tauri::AppHandle) -> Result<(), String> {
+fn open_log_directory(app: tauri::AppHandle) -> Result<(), CommandError> {
     open_directory(log_directory(&app)?)?;
     let _ = append_log(&app, "INFO", "log_directory_opened", "success");
     Ok(())
 }
 
 #[tauri::command]
-fn clear_logs(app: tauri::AppHandle) -> Result<(), String> {
+fn clear_logs(app: tauri::AppHandle) -> Result<(), CommandError> {
     let _guard = LOG_LOCK
         .lock()
         .map_err(|_| "日志写入锁不可用".to_string())?;
@@ -724,14 +1098,18 @@ fn clear_logs(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 #[tauri::command]
-fn list_providers(app: tauri::AppHandle) -> Result<Vec<ProviderSummary>, String> {
-    load_data(&app)?.providers.iter().map(summary).collect()
+fn list_providers(app: tauri::AppHandle) -> Result<Vec<ProviderSummary>, CommandError> {
+    load_data(&app)?
+        .providers
+        .iter()
+        .map(|provider| summary(provider).map_err(CommandError::from))
+        .collect()
 }
 #[tauri::command]
 fn create_provider(
     app: tauri::AppHandle,
     input: CreateProviderInput,
-) -> Result<ProviderSummary, String> {
+) -> Result<ProviderSummary, CommandError> {
     if input.name.trim().is_empty() {
         return Err("供应商名称不能为空".into());
     }
@@ -763,7 +1141,7 @@ fn create_provider(
 fn update_provider(
     app: tauri::AppHandle,
     input: UpdateProviderInput,
-) -> Result<ProviderSummary, String> {
+) -> Result<ProviderSummary, CommandError> {
     let mut data = load_data(&app)?;
     if input.name.trim().is_empty() {
         return Err("供应商名称不能为空".into());
@@ -788,7 +1166,7 @@ fn update_provider(
     Ok(result)
 }
 #[tauri::command]
-fn delete_provider(app: tauri::AppHandle, provider_id: String) -> Result<(), String> {
+fn delete_provider(app: tauri::AppHandle, provider_id: String) -> Result<(), CommandError> {
     let mut data = load_data(&app)?;
     let provider_index = data
         .providers
@@ -813,7 +1191,7 @@ fn delete_provider(app: tauri::AppHandle, provider_id: String) -> Result<(), Str
     Ok(())
 }
 #[tauri::command]
-fn reorder_providers(app: tauri::AppHandle, provider_ids: Vec<String>) -> Result<(), String> {
+fn reorder_providers(app: tauri::AppHandle, provider_ids: Vec<String>) -> Result<(), CommandError> {
     let mut data = load_data(&app)?;
     if provider_ids.len() != data.providers.len() {
         return Err("供应商排序数据不完整".into());
@@ -829,7 +1207,10 @@ fn reorder_providers(app: tauri::AppHandle, provider_ids: Vec<String>) -> Result
     Ok(())
 }
 #[tauri::command]
-fn create_api_key(app: tauri::AppHandle, input: CreateKeyInput) -> Result<ApiKeySummary, String> {
+fn create_api_key(
+    app: tauri::AppHandle,
+    input: CreateKeyInput,
+) -> Result<ApiKeySummary, CommandError> {
     if input.value.trim().is_empty() {
         return Err("API Key 不能为空".into());
     }
@@ -846,11 +1227,7 @@ fn create_api_key(app: tauri::AppHandle, input: CreateKeyInput) -> Result<ApiKey
     let key = ApiKeyRecord {
         id: id.clone(),
         provider_id: input.provider_id,
-        remark: if input.remark.trim().is_empty() {
-            "未命名 Key".into()
-        } else {
-            input.remark.trim().into()
-        },
+        remark: input.remark.trim().into(),
         secret_id: id,
         status: "untested".into(),
         last_checked_at: None,
@@ -863,7 +1240,10 @@ fn create_api_key(app: tauri::AppHandle, input: CreateKeyInput) -> Result<ApiKey
 }
 
 #[tauri::command]
-fn update_api_key(app: tauri::AppHandle, input: UpdateKeyInput) -> Result<ApiKeySummary, String> {
+fn update_api_key(
+    app: tauri::AppHandle,
+    input: UpdateKeyInput,
+) -> Result<ApiKeySummary, CommandError> {
     let mut data = load_data(&app)?;
     let key = data
         .providers
@@ -871,11 +1251,7 @@ fn update_api_key(app: tauri::AppHandle, input: UpdateKeyInput) -> Result<ApiKey
         .flat_map(|provider| &mut provider.keys)
         .find(|key| key.id == input.id)
         .ok_or("未找到 API Key")?;
-    let next_remark = if input.remark.trim().is_empty() {
-        "未命名 Key".into()
-    } else {
-        input.remark.trim().into()
-    };
+    let next_remark = input.remark.trim().to_string();
     let next_value = input.value.trim();
 
     if next_value.is_empty() {
@@ -908,14 +1284,14 @@ fn update_api_key(app: tauri::AppHandle, input: UpdateKeyInput) -> Result<ApiKey
 
     if let Err(error) = save_data(&app, &data) {
         let _ = entry.set_password(&previous_value);
-        return Err(error);
+        return Err(error.into());
     }
 
     let _ = append_log(&app, "INFO", "api_key_replaced", "success");
     Ok(result)
 }
 #[tauri::command]
-fn copy_api_key(app: tauri::AppHandle, key_id: String) -> Result<(), String> {
+fn copy_api_key(app: tauri::AppHandle, key_id: String) -> Result<(), CommandError> {
     let data = load_data(&app)?;
     let value = key_value(
         data.providers
@@ -931,7 +1307,7 @@ fn copy_api_key(app: tauri::AppHandle, key_id: String) -> Result<(), String> {
     Ok(())
 }
 #[tauri::command]
-fn delete_api_key(app: tauri::AppHandle, key_id: String) -> Result<(), String> {
+fn delete_api_key(app: tauri::AppHandle, key_id: String) -> Result<(), CommandError> {
     let mut data = load_data(&app)?;
     let provider = data
         .providers
@@ -956,7 +1332,7 @@ fn delete_api_key(app: tauri::AppHandle, key_id: String) -> Result<(), String> {
 async fn check_provider_keys(
     app: tauri::AppHandle,
     provider_id: String,
-) -> Result<Vec<ApiKeySummary>, String> {
+) -> Result<Vec<ApiKeySummary>, CommandError> {
     let mut data = load_data(&app)?;
     let provider = data
         .providers
@@ -1001,7 +1377,7 @@ async fn check_api_key(
     app: tauri::AppHandle,
     provider_id: String,
     key_id: String,
-) -> Result<ApiKeySummary, String> {
+) -> Result<ApiKeySummary, CommandError> {
     let mut data = load_data(&app)?;
     let provider = data
         .providers
@@ -1052,6 +1428,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            load_app_settings,
+            save_app_settings,
             get_app_info,
             check_for_updates,
             install_update,

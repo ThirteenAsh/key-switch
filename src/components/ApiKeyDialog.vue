@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { KeyRound, X } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
 const props = withDefaults(defineProps<{ open: boolean; providerName: string; mode?: "create" | "edit"; initialRemark?: string }>(), {
   mode: "create",
   initialRemark: "",
 });
 const emit = defineEmits<{ close: []; save: [payload: { remark: string; value: string }] }>();
+const { t } = useI18n();
 const remark = ref(""); const value = ref(""); const error = ref("");
 watch(() => props.open, (open) => { if (open) { remark.value = props.initialRemark; value.value = ""; error.value = ""; } });
 function submit() {
   const nextRemark = remark.value.trim();
   const nextValue = value.value.trim();
-  if (props.mode === "create" && !nextValue) { error.value = "请输入 API Key"; return; }
+  if (props.mode === "create" && !nextValue) { error.value = t("keyDialog.errors.keyRequired"); return; }
   if (props.mode === "edit" && !nextValue && nextRemark === props.initialRemark.trim()) {
-    error.value = "请修改备注或输入新的 API Key";
+    error.value = t("keyDialog.errors.noChanges");
     return;
   }
   emit("save", { remark: nextRemark, value: nextValue });
@@ -25,12 +27,12 @@ function submit() {
     <Transition name="key-dialog-fade">
       <div v-if="open" class="dialog-backdrop" @click.self="emit('close')">
         <section class="key-dialog" role="dialog" aria-modal="true">
-          <header><div><h2>{{ mode === 'edit' ? '编辑 API Key' : '添加 API Key' }}</h2><p>{{ providerName }}</p></div><AppButton variant="ghost" size="icon-sm" aria-label="关闭" @click="emit('close')"><X :size="16" :stroke-width="2" /></AppButton></header>
+          <header><div><h2>{{ t(mode === 'edit' ? 'keyDialog.editTitle' : 'keyDialog.addTitle') }}</h2><p>{{ providerName }}</p></div><AppButton variant="ghost" size="icon-sm" :aria-label="t('common.close')" @click="emit('close')"><X :size="16" :stroke-width="2" /></AppButton></header>
           <form @submit.prevent="submit">
-            <label>备注<input v-model="remark" maxlength="64" placeholder="例如：开发环境" /></label>
-            <label>{{ mode === 'edit' ? '新的 API Key' : 'API Key' }}<input v-model="value" type="password" autocomplete="new-password" spellcheck="false" :placeholder="mode === 'edit' ? '可选' : '粘贴 API Key'" /></label>
+            <label>{{ t("keyDialog.remark") }}<input v-model="remark" maxlength="64" :placeholder="t('keyDialog.remarkPlaceholder')" /></label>
+            <label>{{ t(mode === 'edit' ? 'keyDialog.newKey' : 'keyDialog.key') }}<input v-model="value" type="password" autocomplete="new-password" spellcheck="false" :placeholder="t(mode === 'edit' ? 'common.optional' : 'keyDialog.keyPlaceholder')" /></label>
             <p v-if="error" class="form-error">{{ error }}</p>
-            <footer><AppButton variant="secondary" type="button" @click="emit('close')">取消</AppButton><AppButton variant="primary" type="submit"><KeyRound :size="15" :stroke-width="2" />{{ mode === 'edit' ? '保存修改' : '保存 Key' }}</AppButton></footer>
+            <footer><AppButton variant="secondary" type="button" @click="emit('close')">{{ t("common.cancel") }}</AppButton><AppButton variant="primary" type="submit"><KeyRound :size="15" :stroke-width="2" />{{ t(mode === 'edit' ? 'keyDialog.saveChanges' : 'keyDialog.saveKey') }}</AppButton></footer>
           </form>
         </section>
       </div>

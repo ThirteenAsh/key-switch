@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ApiKeySummary, ProviderSummary } from "../types/domain";
+import type { AppErrorPayload } from "../i18n/errors";
 
 export interface AppInfo {
   version: string;
@@ -18,15 +19,33 @@ export interface UpdateInfo {
   releaseTag: string;
 }
 
+export const SETTINGS_SCHEMA_VERSION = 1;
+
+export interface AppSettings {
+  schemaVersion: number;
+  localePreference: string;
+}
+
+export function isDesktopApp(): boolean {
+  return "__TAURI_INTERNALS__" in window;
+}
+
 export async function getAppInfo(): Promise<AppInfo | null> {
-  if (!("__TAURI_INTERNALS__" in window)) return null;
+  if (!isDesktopApp()) return null;
   return invoke<AppInfo>("get_app_info");
 }
 
 function desktopInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  if (!("__TAURI_INTERNALS__" in window)) return Promise.reject(new Error("请在桌面应用中使用本地数据功能"));
+  if (!isDesktopApp()) {
+    return Promise.reject({ code: "DESKTOP_REQUIRED" } satisfies AppErrorPayload);
+  }
   return invoke<T>(command, args);
 }
+export const loadAppSettings = (legacyLocalePreference?: string) => desktopInvoke<AppSettings>(
+  "load_app_settings",
+  { legacyLocalePreference: legacyLocalePreference ?? null },
+);
+export const saveAppSettings = (settings: AppSettings) => desktopInvoke<AppSettings>("save_app_settings", { settings });
 export const listProviders = () => desktopInvoke<ProviderSummary[]>("list_providers");
 export const checkForAppUpdates = () => desktopInvoke<UpdateInfo | null>("check_for_updates");
 export const installAppUpdate = (releaseTag: string) => desktopInvoke<void>("install_update", { releaseTag });
