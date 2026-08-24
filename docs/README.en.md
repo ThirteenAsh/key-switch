@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <a href="../README.md">简体中文</a> · <strong>English</strong> · <a href="./README.zh-TW.md">繁體中文</a>
+  <a href="../README.md">简体中文</a> · <strong>English</strong> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.ja.md">日本語</a>
 </p>
 
 <h1 align="center">Key Switch</h1>
