@@ -462,14 +462,14 @@ fn load_settings_from_file(file: &PathBuf) -> Result<AppSettings, String> {
             .ok_or("无法创建应用数据目录")?
             .join(SETTINGS_TEMP_FILE_NAME);
         if temporary.exists() {
-            fs::rename(&temporary, &file).map_err(|e| format!("无法恢复设置文件：{e}"))?;
+            fs::rename(&temporary, file).map_err(|e| format!("无法恢复设置文件：{e}"))?;
             let _ = fs::remove_file(&backup);
         } else {
-            fs::rename(&backup, &file).map_err(|e| format!("无法恢复设置文件：{e}"))?;
+            fs::rename(&backup, file).map_err(|e| format!("无法恢复设置文件：{e}"))?;
         }
     }
 
-    let content = fs::read_to_string(&file).map_err(|e| format!("无法读取设置文件：{e}"))?;
+    let content = fs::read_to_string(file).map_err(|e| format!("无法读取设置文件：{e}"))?;
     let settings: AppSettings =
         serde_json::from_str(&content).map_err(|e| format!("设置文件格式错误：{e}"))?;
     validate_settings(&settings)?;
@@ -507,12 +507,12 @@ fn save_settings_to_file(file: &PathBuf, settings: &AppSettings) -> Result<(), S
     }
     let had_existing_file = file.exists();
     if had_existing_file {
-        fs::rename(&file, &backup).map_err(|e| format!("无法备份设置文件：{e}"))?;
+        fs::rename(file, &backup).map_err(|e| format!("无法备份设置文件：{e}"))?;
     }
 
-    if let Err(error) = fs::rename(&temporary, &file) {
+    if let Err(error) = fs::rename(&temporary, file) {
         if had_existing_file && backup.exists() {
-            fs::rename(&backup, &file).map_err(|restore_error| {
+            fs::rename(&backup, file).map_err(|restore_error| {
                 format!("无法恢复设置文件：{restore_error}；原始错误：{error}")
             })?;
         }
