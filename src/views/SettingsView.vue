@@ -20,7 +20,7 @@ import { translateAppError } from "../i18n/errors";
 
 const { t } = useI18n();
 const dataDirectory = ref("");
-const version = ref("v1.0.0");
+const version = ref("v1.0.1");
 const notice = ref("");
 const clearLogDialogOpen = ref(false);
 const checkingForUpdates = ref(false);
