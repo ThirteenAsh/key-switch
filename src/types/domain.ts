@@ -22,7 +22,8 @@ export interface ProviderSummary {
 
 export interface BuiltinProviderOption {
   id: string;
-  name: string;
+  nameZh: string;
+  nameEn: string;
   abbreviation: string;
   tone: ProviderSummary["tone"];
   logo: string;

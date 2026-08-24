@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { Check, ImagePlus, Plus, Trash2, X } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
-import { builtinProviderCatalog } from "../data/providerCatalog";
+import { builtinProviderCatalog, getBuiltinProviderName } from "../data/providerCatalog";
+import { effectiveLocale } from "../i18n";
+import type { ProviderSummary } from "../types/domain";
 
 const props = defineProps<{
   open: boolean;
-  configuredProviderIds: string[];
+  configuredProviders: Pick<ProviderSummary, "id" | "name">[];
 }>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];
@@ -23,10 +27,14 @@ const customLogo = ref("");
 const avatarInput = ref<HTMLInputElement | null>(null);
 const error = ref("");
 
-const availableProviders = computed(() => builtinProviderCatalog.map((provider) => ({
-  ...provider,
-  configured: props.configuredProviderIds.includes(provider.id),
-})));
+const availableProviders = computed(() => builtinProviderCatalog.map((provider) => {
+  const configuredProvider = props.configuredProviders.find((item) => item.id === provider.id);
+  return {
+    ...provider,
+    name: configuredProvider?.name ?? getBuiltinProviderName(provider, effectiveLocale.value),
+    configured: Boolean(configuredProvider),
+  };
+}));
 
 watch(() => props.open, (isOpen) => {
   if (!isOpen) return;
@@ -41,7 +49,7 @@ watch(() => props.open, (isOpen) => {
 
 function submitBuiltin() {
   if (!selectedProviderId.value) {
-    error.value = "请选择一个内置供应商";
+    error.value = t("providerDialog.errors.selectBuiltin");
     return;
   }
   emit("addBuiltin", selectedProviderId.value);
@@ -50,7 +58,7 @@ function submitBuiltin() {
 function submitCustom() {
   const name = customName.value.trim();
   if (!name) {
-    error.value = "请输入供应商名称";
+    error.value = t("providerDialog.errors.nameRequired");
     return;
   }
   emit("addCustom", name, ensureHttpsPrefix(), customLogo.value || undefined);
@@ -74,12 +82,12 @@ function handleAvatarChange(event: Event) {
   if (!file) return;
 
   if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-    error.value = "头像仅支持 PNG、JPG 或 WebP 图片";
+    error.value = t("providerDialog.errors.invalidAvatarType");
     input.value = "";
     return;
   }
   if (file.size > 2 * 1024 * 1024) {
-    error.value = "头像图片不能超过 2MB";
+    error.value = t("providerDialog.errors.avatarTooLarge");
     input.value = "";
     return;
   }
@@ -90,7 +98,7 @@ function handleAvatarChange(event: Event) {
     error.value = "";
   };
   reader.onerror = () => {
-    error.value = "读取头像失败，请重新选择图片";
+    error.value = t("providerDialog.errors.avatarReadFailed");
   };
   reader.readAsDataURL(file);
 }
@@ -108,16 +116,16 @@ function removeAvatar() {
         <section class="provider-config-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-config-title">
           <header class="dialog-header">
             <div>
-              <h2 id="provider-config-title">新增配置</h2>
-              <p class="dialog-subtitle">选择内置供应商快速接入，或配置自定义供应商。</p>
+              <h2 id="provider-config-title">{{ t("providerDialog.configurationTitle") }}</h2>
+              <p class="dialog-subtitle">{{ t("providerDialog.configurationDescription") }}</p>
             </div>
-            <AppButton variant="ghost" size="icon-sm" aria-label="关闭" @click="emit('close')">
+            <AppButton variant="ghost" size="icon-sm" :aria-label="t('common.close')" @click="emit('close')">
               <X :size="15" :stroke-width="2" />
             </AppButton>
           </header>
 
           <!-- 现代分段选择器（轻快滑动） -->
-          <div class="dialog-segmented-tabs" role="tablist" aria-label="配置类型">
+          <div class="dialog-segmented-tabs" role="tablist" :aria-label="t('providerDialog.configurationType')">
             <div
               class="tab-indicator"
               :style="{
@@ -131,7 +139,7 @@ function removeAvatar() {
               :aria-selected="mode === 'builtin'"
               @click="mode = 'builtin'; error = ''"
             >
-              内置供应商
+              {{ t("providerDialog.builtinTab") }}
             </button>
             <button
               :class="{ active: mode === 'custom' }"
@@ -140,7 +148,7 @@ function removeAvatar() {
               :aria-selected="mode === 'custom'"
               @click="mode = 'custom'; error = ''"
             >
-              自定义供应商
+              {{ t("providerDialog.customTab") }}
             </button>
           </div>
 
@@ -158,9 +166,9 @@ function removeAvatar() {
                     type="button"
                     @click="selectedProviderId = provider.id; error = ''"
                   >
-                    <img :src="provider.logo" :alt="`${provider.name} 图标`" />
+                    <img :src="provider.logo" :alt="t('common.providerIconAlt', { name: provider.name })" />
                     <span class="provider-title">{{ provider.name }}</span>
-                    <Check v-if="provider.configured" :size="13" :stroke-width="2.5" class="configured-check" aria-label="已配置" />
+                    <Check v-if="provider.configured" :size="13" :stroke-width="2.5" class="configured-check" :aria-label="t('providerDialog.configured')" />
                   </button>
                 </div>
               </div>
@@ -168,41 +176,41 @@ function removeAvatar() {
               <div v-else key="custom" class="tab-pane custom-provider-form">
                 <div class="custom-avatar-field">
                   <div class="form-label-row">
-                    <span>供应商头像</span>
-                    <span class="form-optional">可选</span>
+                    <span>{{ t("providerDialog.avatar") }}</span>
+                    <span class="form-optional">{{ t("common.optional") }}</span>
                   </div>
                   <div class="custom-avatar-picker">
-                    <img v-if="customLogo" :src="customLogo" alt="已选择的供应商头像" />
+                    <img v-if="customLogo" :src="customLogo" :alt="t('common.selectedProviderAvatarAlt')" />
                     <ImagePlus v-else :size="20" :stroke-width="1.8" aria-hidden="true" />
                     <input ref="avatarInput" class="custom-avatar-file" type="file" accept="image/png,image/jpeg,image/webp" @change="handleAvatarChange" />
                     <AppButton variant="secondary" size="sm" type="button" @click="selectAvatar">
                       <ImagePlus :size="13" :stroke-width="2" />
-                      <span>{{ customLogo ? "更换图片" : "上传图片" }}</span>
+                      <span>{{ t(customLogo ? "common.replaceImage" : "common.uploadImage") }}</span>
                     </AppButton>
-                    <AppButton v-if="customLogo" variant="ghost" size="icon-sm" type="button" aria-label="移除头像" @click="removeAvatar">
+                    <AppButton v-if="customLogo" variant="ghost" size="icon-sm" type="button" :aria-label="t('common.removeAvatar')" @click="removeAvatar">
                       <Trash2 :size="14" :stroke-width="2" />
                     </AppButton>
-                    <small>PNG、JPG、WebP，最大 2MB</small>
+                    <small>{{ t("providerDialog.avatarHelp") }}</small>
                   </div>
                 </div>
                 <div class="form-group">
                   <div class="form-label-row">
-                    <label for="custom-name">供应商名称</label>
-                    <span class="form-required">必填</span>
+                    <label for="custom-name">{{ t("providerDialog.name") }}</label>
+                    <span class="form-required">{{ t("common.required") }}</span>
                   </div>
                   <input
                     id="custom-name"
                     v-model="customName"
                     maxlength="64"
-                    placeholder="例如：公司内部大模型网关 / OneAPI"
+                    :placeholder="t('providerDialog.namePlaceholder')"
                     autofocus
                   />
                 </div>
 
                 <div class="form-group">
                   <div class="form-label-row">
-                    <label for="custom-url">平台管理地址</label>
-                    <span class="form-optional">可选</span>
+                    <label for="custom-url">{{ t("providerDialog.platformUrl") }}</label>
+                    <span class="form-optional">{{ t("common.optional") }}</span>
                   </div>
                   <input
                     id="custom-url"
@@ -223,10 +231,10 @@ function removeAvatar() {
           </div>
 
           <footer class="dialog-footer">
-            <AppButton variant="secondary" @click="emit('close')">取消</AppButton>
+            <AppButton variant="secondary" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
             <AppButton variant="primary" @click="mode === 'builtin' ? submitBuiltin() : submitCustom()">
               <Plus :size="15" :stroke-width="2.2" />
-              <span>新增配置</span>
+              <span>{{ t("providerDialog.addConfiguration") }}</span>
             </AppButton>
           </footer>
         </section>

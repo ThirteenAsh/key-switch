@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Plus, SlidersHorizontal, Trash2 } from "@lucide/vue";
 import AppButton from "../components/ui/AppButton.vue";
 import ProviderAvatar from "../components/ProviderAvatar.vue";
@@ -8,8 +9,10 @@ import ProviderEditDialog from "../components/ProviderEditDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { useDashboardStore } from "../stores/dashboard";
 import type { ProviderSummary } from "../types/domain";
+import { translateAppError } from "../i18n/errors";
 
 const store = useDashboardStore();
+const { t } = useI18n();
 const selectedProvider = ref<ProviderSummary | null>(null);
 const editDialogOpen = ref(false);
 const customDialogOpen = ref(false);
@@ -19,8 +22,8 @@ const deleteMessage = computed(() => {
   if (!deleteTarget.value) return "";
   const count = deleteTarget.value.keys.length;
   return count > 0
-    ? `确定删除“${deleteTarget.value.name}”吗？该供应商的 ${count} 个 API Key 也会一并删除，此操作无法撤销。`
-    : `确定删除“${deleteTarget.value.name}”吗？此操作无法撤销。`;
+    ? t("providers.deleteDialog.withKeys", { name: deleteTarget.value.name, count }, count)
+    : t("providers.deleteDialog.withoutKeys", { name: deleteTarget.value.name });
 });
 
 function openProviderConfiguration(provider: ProviderSummary) {
@@ -29,29 +32,37 @@ function openProviderConfiguration(provider: ProviderSummary) {
 }
 
 async function addCustomProvider(payload: { name: string; platformUrl: string; logo?: string }) {
-  if (!await store.addCustomProvider(payload.name, payload.platformUrl, payload.logo)) {
-    notice.value = "新增失败：供应商名称已存在";
-    return;
-  }
+  try {
+    if (!await store.addCustomProvider(payload.name, payload.platformUrl, payload.logo)) {
+      notice.value = t("providers.notices.addFailed");
+      return;
+    }
 
-  customDialogOpen.value = false;
-  notice.value = "已新增自定义供应商，首页已同步显示";
-  window.setTimeout(() => {
-    notice.value = "";
-  }, 2800);
+    customDialogOpen.value = false;
+    notice.value = t("providers.notices.added");
+    window.setTimeout(() => {
+      notice.value = "";
+    }, 2800);
+  } catch (error) {
+    notice.value = translateAppError(error, "providers.notices.addFailed");
+  }
 }
 
 async function saveProviderConfiguration(payload: { id: string; name: string; platformUrl: string }) {
-  if (!await store.updateProviderConfiguration(payload.id, payload.name, payload.platformUrl)) {
-    notice.value = "保存失败：供应商名称已存在或配置无效";
-    return;
-  }
+  try {
+    if (!await store.updateProviderConfiguration(payload.id, payload.name, payload.platformUrl)) {
+      notice.value = t("providers.notices.saveFailed");
+      return;
+    }
 
-  editDialogOpen.value = false;
-  notice.value = "供应商配置已保存，首页地址已同步更新";
-  window.setTimeout(() => {
-    notice.value = "";
-  }, 2800);
+    editDialogOpen.value = false;
+    notice.value = t("providers.notices.saved");
+    window.setTimeout(() => {
+      notice.value = "";
+    }, 2800);
+  } catch (error) {
+    notice.value = translateAppError(error, "providers.notices.saveFailed");
+  }
 }
 
 async function deleteProvider() {
@@ -59,9 +70,9 @@ async function deleteProvider() {
   const provider = deleteTarget.value;
   try {
     await store.removeProvider(provider.id);
-    notice.value = `已删除供应商“${provider.name}”`;
-  } catch {
-    notice.value = "删除供应商失败";
+    notice.value = t("providers.notices.deleted", { name: provider.name });
+  } catch (error) {
+    notice.value = translateAppError(error, "providers.notices.deleteFailed");
   } finally {
     deleteTarget.value = null;
     window.setTimeout(() => { notice.value = ""; }, 2800);
@@ -73,12 +84,12 @@ async function deleteProvider() {
   <section class="providers-view">
     <div class="view-toolbar">
       <div>
-        <h1>供应商</h1>
-        <p class="view-description">管理内置服务商和自定义 API 端点。</p>
+        <h1>{{ t("providers.title") }}</h1>
+        <p class="view-description">{{ t("providers.description") }}</p>
       </div>
       <AppButton variant="primary" @click="customDialogOpen = true">
         <Plus :size="15" :stroke-width="2.2" />
-        <span>添加供应商</span>
+        <span>{{ t("providers.addProvider") }}</span>
       </AppButton>
     </div>
     <div class="provider-management-grid">
@@ -87,17 +98,17 @@ async function deleteProvider() {
           <ProviderAvatar :provider="provider" />
           <div>
             <strong>{{ provider.name }}</strong>
-            <p>{{ provider.kind === 'builtin' ? '内置供应商' : '自定义供应商' }}</p>
+            <p>{{ t(provider.kind === 'builtin' ? 'providers.builtin' : 'providers.custom') }}</p>
           </div>
         </div>
         <div class="provider-card-footer">
-          <span>{{ provider.keys.length }} 个 Key</span>
+          <span>{{ t("providers.keyCount", { count: provider.keys.length }, provider.keys.length) }}</span>
           <div class="provider-card-actions">
             <AppButton variant="secondary" size="sm" @click="openProviderConfiguration(provider)">
               <SlidersHorizontal :size="13" :stroke-width="2" />
-              <span>配置</span>
+              <span>{{ t("common.configure") }}</span>
             </AppButton>
-            <AppButton variant="danger" size="icon-sm" title="删除供应商" :aria-label="`删除 ${provider.name}`" @click="deleteTarget = provider">
+            <AppButton variant="danger" size="icon-sm" :title="t('providers.deleteAction')" :aria-label="t('providers.deleteAria', { name: provider.name })" @click="deleteTarget = provider">
               <Trash2 :size="14" :stroke-width="2" />
             </AppButton>
           </div>
@@ -112,6 +123,6 @@ async function deleteProvider() {
       @save="saveProviderConfiguration"
     />
     <CustomProviderDialog :open="customDialogOpen" @close="customDialogOpen = false" @add="addCustomProvider" />
-    <ConfirmDialog :open="Boolean(deleteTarget)" title="删除供应商" :message="deleteMessage" confirm-label="删除供应商" @close="deleteTarget = null" @confirm="deleteProvider" />
+    <ConfirmDialog :open="Boolean(deleteTarget)" :title="t('providers.deleteDialog.title')" :message="deleteMessage" :confirm-label="t('providers.deleteAction')" @close="deleteTarget = null" @confirm="deleteProvider" />
   </section>
 </template>

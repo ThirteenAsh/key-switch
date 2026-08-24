@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { KeyStatus } from "../types/domain";
 
 const props = defineProps<{ status: KeyStatus }>();
+const { t } = useI18n();
 
-const statusText = computed(() => ({
-  valid: "可用",
-  untested: "未检测",
-  invalid: "无效",
-  error: "检测异常",
-  checking: "检测中",
-}[props.status]));
+const statusText = computed(() => t(`status.${props.status}`));
 </script>
 
 <template>

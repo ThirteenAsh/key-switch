@@ -1,24 +1,36 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
-import { builtinProviderCatalog } from "../data/providerCatalog";
+import { builtinProviderCatalog, getBuiltinProviderName } from "../data/providerCatalog";
 import { checkApiKey, checkProviderKeys, createApiKey, createProvider, deleteApiKey, deleteProvider, listProviders, reorderProviders, updateApiKey, updateProvider } from "../api/app";
 import type { ProviderSummary } from "../types/domain";
+import type { AppLocale } from "../i18n/locale";
+import { effectiveLocale } from "../i18n";
 
 export const useDashboardStore = defineStore("dashboard", () => {
   const providers = ref<ProviderSummary[]>([]);
   const query = ref("");
   const expandedProviderId = ref("");
   const filteredProviders = computed(() => {
-    const keyword = query.value.trim().toLocaleLowerCase();
-    return !keyword ? providers.value : providers.value.filter((p) => p.name.toLocaleLowerCase().includes(keyword) || p.keys.some((key) => key.remark.toLocaleLowerCase().includes(keyword)));
+    const keyword = query.value.trim().toLocaleLowerCase(effectiveLocale.value);
+    return !keyword ? providers.value : providers.value.filter((p) => p.name.toLocaleLowerCase(effectiveLocale.value).includes(keyword) || p.keys.some((key) => key.remark.toLocaleLowerCase(effectiveLocale.value).includes(keyword)));
   });
   const summary = computed(() => { const keys = providers.value.flatMap((p) => p.keys); return { providerCount: providers.value.length, keyCount: keys.length, availableKeyCount: keys.filter((key) => key.status === "valid").length }; });
   function toggleProvider(id: string) { expandedProviderId.value = expandedProviderId.value === id ? "" : id; }
   async function load() { providers.value = await listProviders(); }
-  async function addBuiltinProvider(id: string) {
+  async function addBuiltinProvider(id: string, locale: AppLocale) {
     const provider = builtinProviderCatalog.find((item) => item.id === id);
     if (!provider || providers.value.some((item) => item.id === id)) return false;
-    providers.value.push(await createProvider({ ...provider, kind: "builtin" })); expandedProviderId.value = id; return true;
+    providers.value.push(await createProvider({
+      id: provider.id,
+      name: getBuiltinProviderName(provider, locale),
+      abbreviation: provider.abbreviation,
+      tone: provider.tone,
+      logo: provider.logo,
+      kind: "builtin",
+      platformUrl: provider.platformUrl,
+    }));
+    expandedProviderId.value = id;
+    return true;
   }
   async function addCustomProvider(name: string, platformUrl: string, logo?: string) {
     const normalized = name.trim(); if (!normalized || providers.value.some((p) => p.name === normalized)) return false;

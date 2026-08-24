@@ -4,18 +4,21 @@ import {
   Cpu,
   SlidersHorizontal
 } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
 
 const navigation = [
-  { label: "仪表盘", to: "/", icon: LayoutGrid },
-  { label: "供应商", to: "/providers", icon: Cpu },
-  { label: "设置", to: "/settings", icon: SlidersHorizontal },
+  { labelKey: "navigation.dashboard", to: "/", icon: LayoutGrid },
+  { labelKey: "navigation.providers", to: "/providers", icon: Cpu },
+  { labelKey: "navigation.settings", to: "/settings", icon: SlidersHorizontal },
 ];
 </script>
 
 <template>
   <aside class="app-sidebar">
     <div class="sidebar-top">
-      <nav class="sidebar-nav" aria-label="主导航">
+      <nav class="sidebar-nav" :aria-label="t('navigation.main')">
         <RouterLink
           v-for="item in navigation"
           :key="item.to"
@@ -23,7 +26,7 @@ const navigation = [
           class="nav-item"
         >
           <component :is="item.icon" :size="17" :stroke-width="1.9" class="nav-icon" />
-          <span>{{ item.label }}</span>
+          <span>{{ t(item.labelKey) }}</span>
         </RouterLink>
       </nav>
     </div>

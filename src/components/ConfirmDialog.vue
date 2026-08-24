@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { AlertTriangle, X } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
 
 defineProps<{ open: boolean; title: string; message: string; confirmLabel?: string }>();
 const emit = defineEmits<{ close: []; confirm: [] }>();
+const { t } = useI18n();
 </script>
 
 <template>
@@ -17,11 +19,11 @@ const emit = defineEmits<{ close: []; confirm: [] }>();
               <h2 id="confirm-dialog-title">{{ title }}</h2>
               <p>{{ message }}</p>
             </div>
-            <AppButton variant="ghost" size="icon-sm" aria-label="关闭" @click="emit('close')"><X :size="15" /></AppButton>
+            <AppButton variant="ghost" size="icon-sm" :aria-label="t('common.close')" @click="emit('close')"><X :size="15" /></AppButton>
           </header>
           <footer>
-            <AppButton variant="secondary" @click="emit('close')">取消</AppButton>
-            <AppButton variant="danger" @click="emit('confirm')">{{ confirmLabel ?? '确认删除' }}</AppButton>
+            <AppButton variant="secondary" @click="emit('close')">{{ t('common.cancel') }}</AppButton>
+            <AppButton variant="danger" @click="emit('confirm')">{{ confirmLabel ?? t('common.delete') }}</AppButton>
           </footer>
         </section>
       </div>

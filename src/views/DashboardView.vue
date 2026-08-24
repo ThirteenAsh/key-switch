@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onUnmounted, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ChevronRight,
   Copy,
@@ -25,9 +26,12 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { useDashboardStore } from "../stores/dashboard";
 import { copyApiKey } from "../api/app";
+import { effectiveLocale } from "../i18n";
+import { translateAppError } from "../i18n/errors";
 import type { ApiKeySummary, ProviderSummary } from "../types/domain";
 
 const store = useDashboardStore();
+const { t } = useI18n();
 const notice = ref("");
 const configDialogOpen = ref(false);
 const copiedKeyId = ref<string | null>(null);
@@ -50,9 +54,9 @@ async function handleCopy(keyId: string) {
   try {
     await copyApiKey(keyId);
     copiedKeyId.value = keyId;
-    notify("已复制到剪贴板");
+    notify(t("dashboard.notices.copied"));
     setTimeout(() => { if (copiedKeyId.value === keyId) copiedKeyId.value = null; }, 2000);
-  } catch { notify("复制失败"); }
+  } catch (error) { notify(translateAppError(error, "dashboard.notices.copyFailed")); }
 }
 
 async function handleRefreshProvider(providerId: string, event: MouseEvent) {
@@ -60,15 +64,15 @@ async function handleRefreshProvider(providerId: string, event: MouseEvent) {
   const provider = store.providers.find((item) => item.id === providerId);
   if (checkingProviderId.value || provider?.keys.some((key) => key.status === "checking")) return;
   checkingProviderId.value = providerId;
-  notify("正在检测该供应商下所有 Key 状态...");
+  notify(t("dashboard.notices.checkingProvider"));
   try {
     const keys = await store.checkKeys(providerId);
     const validCount = keys.filter((key) => key.status === "valid").length;
     const invalidCount = keys.filter((key) => key.status === "invalid").length;
     const errorCount = keys.filter((key) => key.status === "error").length;
-    notify(`检测完成：${validCount} 可用，${invalidCount} 无效，${errorCount} 异常`);
+    notify(t("dashboard.notices.checkComplete", { valid: validCount, invalid: invalidCount, error: errorCount }));
   }
-  catch { notify("检测失败，请检查网络或供应商配置"); }
+  catch (error) { notify(translateAppError(error, "dashboard.notices.checkFailed")); }
   finally { checkingProviderId.value = null; }
 }
 
@@ -81,10 +85,10 @@ async function handleCheckKey(providerId: string, keyId: string) {
   try {
     const key = await store.checkKey(providerId, keyId);
     const message = key.status === "valid"
-      ? "该 API Key 可用"
-      : key.status === "invalid" ? "该 API Key 无效" : "检测异常，请稍后重试";
+      ? t("dashboard.notices.keyValid")
+      : key.status === "invalid" ? t("dashboard.notices.keyInvalid") : t("dashboard.notices.keyCheckError");
     notify(message);
-  } catch { notify("检测失败，请检查网络或供应商配置"); }
+  } catch (error) { notify(translateAppError(error, "dashboard.notices.checkFailed")); }
 }
 
 function openEditKeyDialog(provider: ProviderSummary, key: ApiKeySummary) {
@@ -104,21 +108,23 @@ async function saveKey(payload: { remark: string; value: string }) {
       const keyWasReplaced = Boolean(payload.value);
       await store.replaceKey(keyDialogProvider.value.id, { id: editingKey.value.id, ...payload });
       closeKeyDialog();
-      notify(keyWasReplaced ? "API Key 已替换" : "备注已保存");
+      notify(t(keyWasReplaced ? "dashboard.notices.keyReplaced" : "dashboard.notices.remarkSaved"));
     } else {
       await store.addKey({ providerId: keyDialogProvider.value.id, ...payload });
       closeKeyDialog();
-      notify("API Key 已保存");
+      notify(t("dashboard.notices.keySaved"));
     }
-  } catch { notify(editingKey.value ? "保存修改失败" : "保存 API Key 失败"); }
+  } catch (error) {
+    notify(translateAppError(error, editingKey.value ? "dashboard.notices.editSaveFailed" : "dashboard.notices.keySaveFailed"));
+  }
 }
 
 function requestDeleteKey(providerId: string, keyId: string) { deleteTarget.value = { providerId, keyId }; }
 async function deleteKey() {
   if (!deleteTarget.value) return;
   const target = deleteTarget.value;
-  try { await store.deleteKey(target.providerId, target.keyId); notify("API Key 已删除"); }
-  catch { notify("删除 API Key 失败"); }
+  try { await store.deleteKey(target.providerId, target.keyId); notify(t("dashboard.notices.keyDeleted")); }
+  catch (error) { notify(translateAppError(error, "dashboard.notices.keyDeleteFailed")); }
   finally { deleteTarget.value = null; }
 }
 
@@ -492,14 +498,14 @@ function getCardTransform(index: number): { transform: string } {
 }
 
 function getProviderEndpoint(provider: ProviderSummary): string {
-  return provider.platformUrl || "未配置平台管理地址";
+  return provider.platformUrl || t("dashboard.noPlatformUrl");
 }
 
 async function openProviderPlatform(url: string) {
   try {
     const parsedUrl = new URL(url);
     if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-      throw new Error("不支持的链接协议");
+      throw new Error("Unsupported URL protocol");
     }
 
     if ("__TAURI_INTERNALS__" in window) {
@@ -509,7 +515,7 @@ async function openProviderPlatform(url: string) {
 
     window.open(parsedUrl.href, "_blank", "noopener,noreferrer");
   } catch {
-    notify("无法打开该供应商的平台管理地址");
+    notify(t("dashboard.notices.openPlatformFailed"));
   }
 }
 
@@ -518,59 +524,67 @@ function getAvailableCount(provider: ProviderSummary): number {
 }
 
 async function addBuiltinProvider(providerId: string) {
-  if (!await store.addBuiltinProvider(providerId)) {
-    notify("该供应商已配置");
-    return;
+  try {
+    if (!await store.addBuiltinProvider(providerId, effectiveLocale.value)) {
+      notify(t("dashboard.notices.providerConfigured"));
+      return;
+    }
+    configDialogOpen.value = false;
+    notify(t("dashboard.notices.providerAdded"));
+  } catch (error) {
+    notify(translateAppError(error));
   }
-  configDialogOpen.value = false;
-  notify("已新增供应商配置");
 }
 
 async function addCustomProvider(name: string, platformUrl: string, logo?: string) {
-  if (!await store.addCustomProvider(name, platformUrl, logo)) {
-    notify("供应商名称已存在");
-    return;
+  try {
+    if (!await store.addCustomProvider(name, platformUrl, logo)) {
+      notify(t("dashboard.notices.providerExists"));
+      return;
+    }
+    configDialogOpen.value = false;
+    notify(t("dashboard.notices.customProviderAdded"));
+  } catch (error) {
+    notify(translateAppError(error));
   }
-  configDialogOpen.value = false;
-  notify("已新增自定义供应商配置");
 }
 </script>
 
 <template>
   <section class="dashboard-view">
     <div class="view-toolbar">
-      <h1>仪表盘</h1>
+      <h1>{{ t("dashboard.title") }}</h1>
       <div class="toolbar-actions">
         <label class="search-field">
           <Search :size="15" :stroke-width="2" aria-hidden="true" />
-          <input v-model="store.query" type="search" placeholder="搜索供应商或 Key 备注" aria-label="搜索供应商或 Key 备注" />
+          <input v-model="store.query" type="search" :placeholder="t('dashboard.searchPlaceholder')" :aria-label="t('dashboard.searchPlaceholder')" />
         </label>
         <AppButton variant="primary" @click="configDialogOpen = true">
           <Plus :size="15" :stroke-width="2.2" />
-          <span>新增配置</span>
+          <span>{{ t("dashboard.addConfiguration") }}</span>
         </AppButton>
       </div>
     </div>
 
     <!-- 顶部统计卡片 -->
-    <div class="stat-grid" aria-label="Key 统计">
+    <div class="stat-grid" :aria-label="t('dashboard.statisticsLabel')">
       <article class="stat-card">
         <span class="stat-icon stat-icon--blue">
           <Cpu :size="20" :stroke-width="1.9" />
         </span>
-        <div><p>供应商数量</p><strong>{{ store.summary.providerCount }}</strong></div>
+        <div><p>{{ t("dashboard.providerCount") }}</p><strong>{{ store.summary.providerCount }}</strong></div>
       </article>
       <article class="stat-card">
         <span class="stat-icon stat-icon--green">
           <KeyRound :size="20" :stroke-width="1.9" />
         </span>
-        <div><p>Key 总数</p><strong>{{ store.summary.keyCount }}</strong></div>
+        <div><p>{{ t("dashboard.keyCount") }}</p><strong>{{ store.summary.keyCount }}</strong></div>
       </article>
       <article class="stat-card">
         <span class="stat-icon stat-icon--emerald">
           <CheckCircle2 :size="20" :stroke-width="1.9" />
         </span>
-        <div><p>可用 Key</p><strong>{{ store.summary.availableKeyCount }}</strong></div>
+        <div><p>{{ t("dashboard.availableKeyCount") }}</p><strong>{{ store.summary.availableKeyCount }}</strong></div>
       </article>
     </div>
 
@@ -592,7 +606,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
             <div class="provider-main-info">
               <span
                 class="drag-handle"
-                title="按住拖拽调整顺序"
+                :title="t('dashboard.dragToReorder')"
                 @pointerdown="handleHandlePointerDown(index, $event)"
                 @click.stop
               >
@@ -603,7 +617,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                 <div class="provider-title-row">
                   <strong class="provider-name-text">{{ provider.name }}</strong>
                   <span class="provider-tag" :class="provider.kind === 'builtin' ? 'provider-tag--builtin' : 'provider-tag--custom'">
-                    {{ provider.kind === 'builtin' ? '官方' : '自定义' }}
+                    {{ t(provider.kind === 'builtin' ? 'dashboard.officialProvider' : 'dashboard.customProvider') }}
                   </span>
                 </div>
                 <a v-if="provider.platformUrl" :href="provider.platformUrl" class="provider-endpoint-link" @click.stop.prevent="openProviderPlatform(provider.platformUrl)">
@@ -619,7 +633,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                 <div class="provider-quota-summary">
                   <span>Key: </span>
                   <strong class="quota-highlight">{{ provider.keys.length }}</strong>
-                  <span class="quota-available">（{{ getAvailableCount(provider) }} 可用）</span>
+                  <span class="quota-available">{{ t("dashboard.availableSummary", { count: getAvailableCount(provider) }) }}</span>
                 </div>
               </div>
 
@@ -628,7 +642,8 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                 class="refresh-btn"
                 :class="{ 'is-spinning': checkingProviderId === provider.id }"
                 :disabled="checkingProviderId === provider.id || provider.keys.some((key) => key.status === 'checking')"
-                title="重新检测状态"
+                :title="t('dashboard.refreshStatus')"
+                :aria-label="t('dashboard.refreshStatus')"
                 type="button"
                 @click="handleRefreshProvider(provider.id, $event)"
               >
@@ -644,14 +659,14 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                       @click="openCreateKeyDialog(provider)"
                     >
                       <Plus :size="13" :stroke-width="2.2" />
-                      <span>添加 Key</span>
+                      <span>{{ t("dashboard.addKey") }}</span>
                     </AppButton>
                   </div>
                 </Transition>
                 <AppButton
                   variant="ghost"
                   size="icon-sm"
-                  :aria-label="store.expandedProviderId === provider.id ? '收起' : '展开'"
+                  :aria-label="t(store.expandedProviderId === provider.id ? 'common.collapse' : 'common.expand')"
                   @click="store.toggleProvider(provider.id)"
                 >
                   <ChevronRight
@@ -677,15 +692,15 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
               <table class="key-table">
                 <thead>
                   <tr>
-                    <th>备注</th>
-                    <th>API Key（部分隐藏）</th>
-                    <th>状态</th>
-                    <th>操作</th>
+                    <th>{{ t("dashboard.columns.remark") }}</th>
+                    <th>{{ t("dashboard.columns.maskedKey") }}</th>
+                    <th>{{ t("dashboard.columns.status") }}</th>
+                    <th>{{ t("dashboard.columns.actions") }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="key in provider.keys" :key="key.id">
-                    <td>{{ key.remark }}</td>
+                    <td>{{ key.remark || t("keyDialog.unnamed") }}</td>
                     <td class="masked-key">
                       <code>{{ key.maskedValue }}</code>
                     </td>
@@ -695,8 +710,8 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                         variant="ghost"
                         size="icon-sm"
                         :loading="key.status === 'checking'"
-                        title="检测 Key"
-                        aria-label="检测 Key"
+                        :title="t('dashboard.actions.checkKey')"
+                        :aria-label="t('dashboard.actions.checkKey')"
                         @click="handleCheckKey(provider.id, key.id)"
                       >
                         <ShieldCheck :size="15" :stroke-width="2" />
@@ -704,8 +719,8 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                       <AppButton
                         variant="ghost"
                         size="icon-sm"
-                        title="编辑 Key"
-                        aria-label="编辑 Key"
+                        :title="t('dashboard.actions.editKey')"
+                        :aria-label="t('dashboard.actions.editKey')"
                         @click="openEditKeyDialog(provider, key)"
                       >
                         <SquarePen :size="15" :stroke-width="2" />
@@ -713,8 +728,8 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                       <AppButton
                         :variant="copiedKeyId === key.id ? 'success' : 'ghost'"
                         size="icon-sm"
-                        :title="copiedKeyId === key.id ? '已复制' : '复制 Key'"
-                        :aria-label="copiedKeyId === key.id ? '已复制' : '复制 Key'"
+                        :title="t(copiedKeyId === key.id ? 'dashboard.actions.copied' : 'dashboard.actions.copyKey')"
+                        :aria-label="t(copiedKeyId === key.id ? 'dashboard.actions.copied' : 'dashboard.actions.copyKey')"
                         @click="handleCopy(key.id)"
                       >
                         <Check v-if="copiedKeyId === key.id" :size="14" :stroke-width="2.2" />
@@ -723,8 +738,8 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                       <AppButton
                         variant="danger"
                         size="icon-sm"
-                        title="删除 Key"
-                        aria-label="删除 Key"
+                        :title="t('dashboard.actions.deleteKey')"
+                        :aria-label="t('dashboard.actions.deleteKey')"
                         @click="requestDeleteKey(provider.id, key.id)"
                       >
                         <Trash2 :size="15" :stroke-width="2" />
@@ -735,7 +750,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
               </table>
               <p class="key-disclosure">
                 <Info :size="14" :stroke-width="1.8" />
-                <span>仅显示部分 Key；完整密钥不会在列表中返回。</span>
+                <span>{{ t("dashboard.keyDisclosure") }}</span>
               </p>
             </div>
           </Transition>
@@ -745,15 +760,15 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
 
     <div v-else class="empty-state">
       <Search :size="32" :stroke-width="1.7" />
-      <h2>{{ hasConfiguredProviders ? "没有找到匹配的供应商或备注" : "还没有供应商配置" }}</h2>
-      <p>{{ hasConfiguredProviders ? "尝试使用其他关键词搜索。" : "从内置供应商开始，或创建一个自定义供应商。" }}</p>
+      <h2>{{ t(hasConfiguredProviders ? "dashboard.empty.noMatchesTitle" : "dashboard.empty.noProvidersTitle") }}</h2>
+      <p>{{ t(hasConfiguredProviders ? "dashboard.empty.noMatchesDescription" : "dashboard.empty.noProvidersDescription") }}</p>
       <AppButton variant="secondary" @click="hasConfiguredProviders ? store.query = '' : configDialogOpen = true">
-        {{ hasConfiguredProviders ? "清除搜索" : "新增配置" }}
+        {{ t(hasConfiguredProviders ? "dashboard.empty.clearSearch" : "dashboard.addConfiguration") }}
       </AppButton>
     </div>
 
     <Transition name="toast"><p v-if="notice" class="toast" role="status">{{ notice }}</p></Transition>
-    <ProviderConfigDialog :open="configDialogOpen" :configured-provider-ids="store.providers.map((provider) => provider.id)" @close="configDialogOpen = false" @add-builtin="addBuiltinProvider" @add-custom="addCustomProvider" />
+    <ProviderConfigDialog :open="configDialogOpen" :configured-providers="store.providers" @close="configDialogOpen = false" @add-builtin="addBuiltinProvider" @add-custom="addCustomProvider" />
     <ApiKeyDialog
       :open="Boolean(keyDialogProvider)"
       :provider-name="keyDialogProvider?.name ?? ''"
@@ -762,7 +777,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
       @close="closeKeyDialog"
       @save="saveKey"
     />
-    <ConfirmDialog :open="Boolean(deleteTarget)" title="删除 API Key" message="确定删除此 API Key 吗？此操作无法撤销。" @close="deleteTarget = null" @confirm="deleteKey" />
+    <ConfirmDialog :open="Boolean(deleteTarget)" :title="t('dashboard.deleteKeyDialog.title')" :message="t('dashboard.deleteKeyDialog.message')" @close="deleteTarget = null" @confirm="deleteKey" />
   </section>
 </template>
 

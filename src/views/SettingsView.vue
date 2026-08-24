@@ -1,26 +1,50 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
-import { FileClock, FolderOpen, RefreshCw, Trash2 } from "@lucide/vue";
+import { FileClock, FolderOpen, Languages, RefreshCw, Trash2 } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import githubIcon from "../assets/icons8-github.svg";
 import appIcon from "../assets/key-switch.svg";
 import AppButton from "../components/ui/AppButton.vue";
+import AppSelect from "../components/ui/AppSelect.vue";
+import type { AppSelectOption } from "../components/ui/AppSelect.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import UpdateAvailableDialog from "../components/UpdateAvailableDialog.vue";
 import { checkForAppUpdates, clearLogs, getAppInfo, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
 import type { UpdateInfo } from "../api/app";
 import { useUpdateStore } from "../stores/update";
+import { useSettingsStore } from "../stores/settings";
+import { isLocalePreference } from "../i18n/locale";
+import { translateAppError } from "../i18n/errors";
 
-const dataDirectory = ref("正在读取本地数据目录");
-const logDirectory = ref("正在读取日志目录");
-const version = ref("v1.0.0");
+const { t } = useI18n();
+const dataDirectory = ref("");
+const version = ref("v1.0.1");
 const notice = ref("");
 const clearLogDialogOpen = ref(false);
 const checkingForUpdates = ref(false);
 const availableUpdate = ref<UpdateInfo | null>(null);
 const updateStore = useUpdateStore();
+const settingsStore = useSettingsStore();
 const { installing: installingUpdate } = storeToRefs(updateStore);
+const { localePreference } = storeToRefs(settingsStore);
+const languageOptions = computed<AppSelectOption[]>(() => [
+  { value: "system", label: t("settings.language.system") },
+  { value: "zh-CN", label: t("settings.language.simplifiedChinese") },
+  { value: "zh-TW", label: t("settings.language.traditionalChinese") },
+  { value: "en-US", label: t("settings.language.english") },
+  { value: "ja-JP", label: t("settings.language.japanese") },
+]);
+
+async function changeLocalePreference(value: string): Promise<void> {
+  if (!isLocalePreference(value)) return;
+  try {
+    await settingsStore.updateLocalePreference(value);
+  } catch (error) {
+    notify(translateAppError(error));
+  }
+}
 
 function notify(message: string) {
   notice.value = message;
@@ -29,25 +53,25 @@ function notify(message: string) {
 
 async function openDataDirectory() {
   try { await openAppDataDirectory(); }
-  catch { notify("无法打开本地存储位置"); }
+  catch (error) { notify(translateAppError(error, "settings.storage.openFailed")); }
 }
 
 async function openLogDirectory() {
   try { await openAppLogDirectory(); }
-  catch { notify("无法打开日志目录"); }
+  catch (error) { notify(translateAppError(error, "settings.logs.openFailed")); }
 }
 
 async function confirmClearLogs() {
   try {
     await clearLogs();
     clearLogDialogOpen.value = false;
-    notify("日志已清空");
-  } catch { notify("清空日志失败"); }
+    notify(t("settings.logs.cleared"));
+  } catch (error) { notify(translateAppError(error, "settings.logs.clearFailed")); }
 }
 
 async function openGithub() {
   try { await openUrl("https://github.com/ThirteenAsh/key-switch"); }
-  catch { notify("无法打开 GitHub 仓库"); }
+  catch { notify(t("settings.version.githubFailed")); }
 }
 
 async function checkForUpdates() {
@@ -56,11 +80,11 @@ async function checkForUpdates() {
   try {
     const update = await checkForAppUpdates();
     if (!update) {
-      notify("当前已是最新版本");
+      notify(t("settings.version.latest"));
       return;
     }
     availableUpdate.value = update;
-  } catch { notify("检查更新失败，请稍后重试"); }
+  } catch (error) { notify(translateAppError(error, "settings.version.checkFailed")); }
   finally { checkingForUpdates.value = false; }
 }
 
@@ -69,11 +93,11 @@ async function openUpdateRelease() {
   try {
     const url = new URL(availableUpdate.value.releaseUrl);
     if (url.protocol !== "https:" || url.hostname !== "github.com" || !url.pathname.startsWith("/ThirteenAsh/key-switch/releases/")) {
-      throw new Error("无效的 Release 地址");
+      throw new Error("Invalid release URL");
     }
     await openUrl(url.href);
     availableUpdate.value = null;
-  } catch { notify("无法打开版本下载页面"); }
+  } catch { notify(t("settings.version.releaseFailed")); }
 }
 
 function closeUpdateDialog() {
@@ -88,11 +112,14 @@ async function installAvailableUpdate() {
 }
 
 onMounted(async () => {
-  const appInfo = await getAppInfo();
-  if (!appInfo) return;
-  dataDirectory.value = appInfo.dataDirectory;
-  logDirectory.value = appInfo.logDirectory;
-  version.value = `v${appInfo.version}`;
+  try {
+    const appInfo = await getAppInfo();
+    if (!appInfo) return;
+    dataDirectory.value = appInfo.dataDirectory;
+    version.value = `v${appInfo.version}`;
+  } catch (error) {
+    notify(translateAppError(error));
+  }
 });
 </script>
 
@@ -100,22 +127,40 @@ onMounted(async () => {
   <section class="settings-view">
     <div class="view-toolbar">
       <div>
-        <h1>设置</h1>
-        <p class="view-description">本地数据与应用信息。</p>
+        <h1>{{ t("settings.title") }}</h1>
+        <p class="view-description">{{ t("settings.description") }}</p>
       </div>
     </div>
     <div class="settings-stack">
+      <article class="settings-card settings-card--language">
+        <div class="settings-heading">
+          <Languages :size="18" :stroke-width="1.8" />
+          <div>
+            <h2>{{ t("settings.language.title") }}</h2>
+            <p>{{ t("settings.language.description") }}</p>
+          </div>
+        </div>
+        <div class="settings-value">
+          <AppSelect
+            :model-value="localePreference"
+            :options="languageOptions"
+            :label="t('settings.language.label')"
+            @update:model-value="changeLocalePreference"
+          />
+        </div>
+      </article>
+
       <article class="settings-card">
         <div class="settings-heading">
           <FolderOpen :size="18" :stroke-width="1.8" />
           <div>
-            <h2>本地存储</h2>
-            <p>供应商与 Key 元数据保存在此目录。</p>
+            <h2>{{ t("settings.storage.title") }}</h2>
+            <p>{{ t("settings.storage.description") }}</p>
           </div>
         </div>
         <div class="settings-value">
-          <code>{{ dataDirectory }}</code>
-          <AppButton variant="secondary" size="sm" @click="openDataDirectory">打开</AppButton>
+          <code>{{ dataDirectory || t("settings.storage.loading") }}</code>
+          <AppButton variant="secondary" size="sm" @click="openDataDirectory">{{ t("common.open") }}</AppButton>
         </div>
       </article>
 
@@ -123,19 +168,19 @@ onMounted(async () => {
         <div class="settings-heading">
           <FileClock :size="18" :stroke-width="1.8" />
           <div>
-            <h2>运行日志</h2>
-            <p>本地操作与检测结果</p>
+            <h2>{{ t("settings.logs.title") }}</h2>
+            <p>{{ t("settings.logs.description") }}</p>
           </div>
         </div>
         <div class="settings-value settings-log-value">
           <div class="settings-log-actions">
             <AppButton variant="danger" size="sm" @click="clearLogDialogOpen = true">
               <Trash2 :size="14" :stroke-width="2" />
-              清空
+              {{ t("common.clear") }}
             </AppButton>
             <AppButton variant="secondary" size="sm" @click="openLogDirectory">
               <FolderOpen :size="14" :stroke-width="2" />
-              打开目录
+              {{ t("settings.logs.openDirectory") }}
             </AppButton>
           </div>
         </div>
@@ -146,7 +191,7 @@ onMounted(async () => {
           <img :src="appIcon" class="settings-app-icon" alt="Key Switch" />
           <div>
             <h2>Key Switch</h2>
-            <p>当前版本 {{ version }}</p>
+            <p>{{ t("settings.version.current", { version }) }}</p>
           </div>
         </div>
         <div class="settings-version-actions">
@@ -156,7 +201,7 @@ onMounted(async () => {
           </AppButton>
           <AppButton variant="primary" size="sm" :loading="checkingForUpdates" @click="checkForUpdates">
             <RefreshCw :size="14" :stroke-width="2" />
-            检查更新
+            {{ t("settings.version.checkUpdates") }}
           </AppButton>
         </div>
       </article>
@@ -164,9 +209,9 @@ onMounted(async () => {
     <Transition name="toast"><p v-if="notice" class="toast" role="status">{{ notice }}</p></Transition>
     <ConfirmDialog
       :open="clearLogDialogOpen"
-      title="清空运行日志"
-      message="确定清空全部本地运行日志吗？此操作无法撤销。"
-      confirm-label="清空日志"
+      :title="t('settings.logs.clearDialogTitle')"
+      :message="t('settings.logs.clearDialogMessage')"
+      :confirm-label="t('settings.logs.clearLogs')"
       @close="clearLogDialogOpen = false"
       @confirm="confirmClearLogs"
     />

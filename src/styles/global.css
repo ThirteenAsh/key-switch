@@ -21,6 +21,18 @@ body {
   background: #f8fafc;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 button, input {
   font: inherit;
 }
@@ -654,6 +666,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   justify-content: space-between;
   gap: 20px;
   min-height: 92px;
+}
+
+.settings-card--language {
+  position: relative;
+  z-index: 2;
+}
+
+.settings-card--language:focus-within {
+  z-index: 20;
 }
 
 .settings-heading {

@@ -1,10 +1,10 @@
 # Key Switch Development Guide
 
-[简体中文](./development.md) · **English** · [繁體中文](./development.zh-TW.md)
+[简体中文](./development.md) · English · [繁體中文](./development.zh-TW.md)
 
 ## 1. Prerequisites
 
-- Node.js 20 LTS or later
+- Node.js 22 LTS or a later compatible version
 - npm
 - The Rust stable toolchain
 - Platform dependencies required by Tauri 2
@@ -26,12 +26,12 @@ To work on the frontend only:
 npm run dev
 ```
 
-Browser mode does not provide Tauri capabilities such as the system keychain, clipboard, or the local data directory.
+Browser mode does not provide Tauri capabilities such as the system credential store, clipboard, application data directory, or persistent application settings. Settings changed in browser mode only last for that session.
 
 ## 3. Common checks
 
 ```bash
-# Type-check and build the frontend
+# Type-check and build the frontend for production
 npm run build
 
 # Format, compile, and test Rust
@@ -41,23 +41,120 @@ cargo check --locked
 cargo test --locked
 ```
 
-## 4. Directory responsibilities
+Changes to frontend/backend contracts, the settings file, or security-sensitive logic must pass both the frontend build and Rust tests before being submitted.
+
+## 4. Architecture and directory responsibilities
 
 | Directory | Responsibility |
 | --- | --- |
-| `src/views/` | Dashboard, providers, and settings pages |
-| `src/components/` | Reusable Vue components and dialogs |
-| `src/api/` | Frontend wrappers for Tauri commands |
-| `src/stores/` | Pinia state and business operations |
-| `src-tauri/src/` | Rust commands, local data, and system capabilities |
-| `src-tauri/capabilities/` | Tauri permission declarations |
-| `docs/` | Project documentation and README assets |
+| `src/views/` | Dashboard, provider, and settings pages |
+| `src/components/` | Reusable Vue components, dialogs, and base UI components |
+| `src/api/` | TypeScript types and wrappers for Tauri commands |
+| `src/stores/` | Pinia state, business operations, and the settings persistence queue |
+| `src/i18n/` | Locale resolution, Vue I18n setup, error translation, and four message sets |
+| `src/data/` | Non-sensitive static data such as the built-in provider catalog |
+| `src-tauri/src/` | Rust commands, local files, credential storage, network checks, and updates |
+| `src-tauri/capabilities/` | Least-privilege Tauri capability declarations |
+| `docs/` | Development documentation and README assets |
 
-Keep the Vue `<script setup lang="ts">` style when adding frontend features. For native capabilities, define a Rust `#[tauri::command]` and register it in `src-tauri/src/lib.rs`.
+The frontend owns presentation, interaction, and non-sensitive state. Sensitive data, persistent files, external requests, and operating-system capabilities belong on the Rust side. New frontend code should keep the Vue `<script setup lang="ts">` style and complete type definitions.
 
-## 5. Security rules
+## 5. Local data and application settings
 
-- Full API Keys must be read and handled on the Rust side; do not put them in logs, URLs, persistent DOM state, or frontend storage.
-- List APIs should return masked keys only; sensitive values are stored in the system keychain.
-- External checks must only access user-configured endpoints and should use timeouts and clear error categories.
-- Never commit real API Keys in source code, test data, Issues, pull requests, or screenshots.
+Runtime data is stored in Tauri's per-user application data directory:
+
+| Content | Location | Notes |
+| --- | --- | --- |
+| Provider and key metadata | `key-switch-data.json` | Never contains complete API Keys |
+| Application settings | `settings.json` | Non-sensitive preferences only |
+| Complete API Keys | System credential store | Never written to JSON |
+| Application logs | `logs/` | Must not contain complete keys or credentials |
+
+Current settings file example:
+
+```json
+{
+  "schemaVersion": 1,
+  "localePreference": "system"
+}
+```
+
+Settings startup flow:
+
+1. `src/main.ts` loads the settings Store before mounting Vue.
+2. Rust reads and validates `settings.json`, creating defaults on the first run.
+3. For upgraded users, the old `key-switch.locale` value is migrated only when the settings file is first created.
+4. The legacy `localStorage` key is removed after a successful migration.
+5. Vue mounts only after settings are returned, preventing a locale flash.
+
+Settings writes are protected as follows:
+
+- A frontend queue preserves the order of rapid consecutive changes.
+- Rust's `SETTINGS_LOCK` prevents concurrent file writes.
+- New content is written to `settings.json.tmp` and explicitly flushed to disk.
+- The current file is renamed to `settings.json.bak` before the temporary file replaces it.
+- On failure, Rust restores the previous file and the frontend rolls back to the most recently saved settings.
+- On startup after an interrupted replacement, a fully written temporary file is preferred; otherwise the backup is restored.
+
+When adding a setting, update all of the following:
+
+1. Rust `AppSettings` or the relevant nested settings type.
+2. Rust `Default` values, range validation, and any required migration.
+3. TypeScript `AppSettings`.
+4. `normalizeSettings()` in `src/stores/settings.ts`.
+5. The settings UI, all four message sets, and relevant tests.
+
+The frontend merges partial changes with `settingsStore.updateSettings()`, but every command and file write contains the complete settings object. A compatible field with a default can keep the current `schemaVersion`. Removing a field, changing its type, or changing its meaning requires a version bump and an explicit migration. Do not change only the version number: unsupported versions are intentionally rejected.
+
+## 6. Internationalization rules
+
+Supported preferences:
+
+- `zh-CN`: Simplified Chinese
+- `zh-TW`: Traditional Chinese
+- `en-US`: English
+- `ja-JP`: Japanese
+- `system`: Follow the operating system
+
+If the system locale cannot be read, the app falls back to Simplified Chinese. A readable but unsupported non-Chinese system locale falls back to English.
+
+Development rules:
+
+- Every user-visible string must use Vue I18n, including buttons, toasts, errors, placeholders, `title`, `aria-label`, and image `alt` text.
+- `src/i18n/messages/zh-CN.ts` defines the message shape; every other locale must satisfy the same `MessageSchema`.
+- Add or remove keys in all four message sets and run `npm run build` to verify their structure.
+- Use semantic, domain-based keys instead of source-language text as keys.
+- Custom provider names and names already stored in user data are user content: never translate or silently rename them.
+- When a built-in provider is added, Chinese locales use its Chinese catalog name. English, Japanese, and other non-Chinese locales use its English name. The displayed name is persisted at creation time.
+- The provider catalog maintains stable IDs plus Chinese and English names; changing the locale must not rewrite stored records.
+- Animated components must support `prefers-reduced-motion`. Custom controls such as selects must retain keyboard behavior and accessibility semantics.
+
+## 7. Tauri commands and error handling
+
+- Call `invoke` through `src/api/app.ts`; do not scatter command strings across page components.
+- Define native commands with `#[tauri::command]` and register them in `tauri::generate_handler!` in `src-tauri/src/lib.rs`.
+- Keep command arguments and return types synchronized between Rust and TypeScript.
+- Rust exposes only stable, non-sensitive error codes to the UI; raw internal errors must not be displayed to users.
+- `src/i18n/errors.ts` maps error codes to translated messages.
+- Business logic must never determine state by matching Chinese or English error text.
+- A new error code requires a Rust mapping, a frontend mapping, all four translations, and tests.
+
+## 8. Security rules
+
+- Complete API Keys may only be read and handled by Rust. They must never enter logs, URLs, persistent DOM state, frontend Stores, `localStorage`, or `settings.json`.
+- List commands return masked values and non-sensitive metadata only. Secrets are stored in the system credential store.
+- Copying, decrypting, and validation happen on the Rust side, with plaintext lifetimes kept as short as practical.
+- External validation may only contact explicitly allowed provider endpoints and must enforce timeouts, response-size limits, and clear error categories.
+- The settings file stores non-sensitive preferences only. Review every new settings field for sensitivity.
+- Review `src-tauri/capabilities/` before adding a Tauri plugin or operating-system capability, and keep permissions minimal.
+- Never commit real API Keys in source, fixtures, Issues, pull requests, logs, or screenshots.
+
+## 9. Change checklist
+
+- UI changes: verify all four locales, long text, keyboard interaction, and reduced motion.
+- Settings changes: verify defaults, validation, full-object merging, rollback, and old-file compatibility.
+- Rust command changes: verify frontend/backend types, command registration, and structured error codes.
+- Data model changes: never silently rewrite existing names, notes, or other user data.
+- Security changes: confirm sensitive values cannot reach frontend persistence, settings files, or logs.
+- Documentation changes: keep `development.md`, `development.en.md`, and `development.zh-TW.md` synchronized.
+- At minimum, run `npm run build`, `cargo fmt --all -- --check`, `cargo check --locked`, and `cargo test --locked`.

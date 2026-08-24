@@ -32,6 +32,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { UpdateInfo } from "./api/app";
 import { checkForAppUpdates } from "./api/app";
@@ -41,8 +42,10 @@ import UpdateAvailableDialog from "./components/UpdateAvailableDialog.vue";
 import UpdateAvailableToast from "./components/UpdateAvailableToast.vue";
 import { useDashboardStore } from "./stores/dashboard";
 import { useUpdateStore } from "./stores/update";
+import { translateAppError } from "./i18n/errors";
 
 const store = useDashboardStore();
+const { t } = useI18n();
 const updateStore = useUpdateStore();
 const { installing: installingUpdate } = storeToRefs(updateStore);
 const availableUpdate = ref<UpdateInfo | null>(null);
@@ -89,12 +92,12 @@ async function openUpdateRelease() {
   try {
     const url = new URL(availableUpdate.value.releaseUrl);
     if (url.protocol !== "https:" || url.hostname !== "github.com" || !url.pathname.startsWith("/ThirteenAsh/key-switch/releases/")) {
-      throw new Error("无效的 Release 地址");
+      throw new Error("Invalid release URL");
     }
     await openUrl(url.href);
     dismissUpdate();
   } catch {
-    notify("无法打开版本下载页面");
+    notify(t("settings.version.releaseFailed"));
   }
 }
 
@@ -106,7 +109,7 @@ async function installAvailableUpdate() {
 }
 
 onMounted(() => {
-  void store.load();
+  void store.load().catch((error) => notify(translateAppError(error)));
   if ("__TAURI_INTERNALS__" in window) void checkForUpdatesAtStartup();
 });
 </script>

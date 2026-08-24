@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { Save, X } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
 import type { ProviderSummary } from "../types/domain";
 
@@ -8,6 +9,7 @@ const props = defineProps<{
   open: boolean;
   provider: ProviderSummary | null;
 }>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];
@@ -38,12 +40,12 @@ function submit() {
   const normalizedPlatformUrl = ensureHttpsPrefix();
 
   if (!props.provider || !normalizedName) {
-    error.value = "请输入供应商名称";
+    error.value = t("providerDialog.errors.nameRequired");
     return;
   }
 
   if (!normalizedPlatformUrl) {
-    error.value = "请输入平台管理地址";
+    error.value = t("providerDialog.errors.platformUrlRequired");
     return;
   }
 
@@ -51,7 +53,7 @@ function submit() {
     const parsedUrl = new URL(normalizedPlatformUrl);
     if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") throw new Error();
   } catch {
-    error.value = "请输入有效的 http 或 https 地址";
+    error.value = t("providerDialog.errors.invalidUrl");
     return;
   }
 
@@ -66,29 +68,29 @@ function submit() {
         <section class="provider-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-edit-title">
           <header class="provider-edit-header">
             <div>
-              <h2 id="provider-edit-title">供应商配置</h2>
-              <p>修改供应商名称和平台管理地址。</p>
+              <h2 id="provider-edit-title">{{ t("providerDialog.editTitle") }}</h2>
+              <p>{{ t("providerDialog.editDescription") }}</p>
             </div>
-            <AppButton variant="ghost" size="icon-sm" aria-label="关闭" @click="emit('close')">
+            <AppButton variant="ghost" size="icon-sm" :aria-label="t('common.close')" @click="emit('close')">
               <X :size="15" :stroke-width="2" />
             </AppButton>
           </header>
 
           <form class="provider-edit-form" @submit.prevent="submit">
             <label>
-              <span>供应商名称</span>
+              <span>{{ t("providerDialog.name") }}</span>
               <input v-model="name" maxlength="64" autocomplete="off" />
             </label>
             <label>
-              <span>平台管理地址</span>
+              <span>{{ t("providerDialog.platformUrl") }}</span>
               <input v-model="platformUrl" type="text" inputmode="url" placeholder="https://platform.example.com" autocomplete="url" @blur="ensureHttpsPrefix" />
             </label>
             <p v-if="error" class="provider-edit-error" role="alert">{{ error }}</p>
             <footer>
-              <AppButton variant="secondary" type="button" @click="emit('close')">取消</AppButton>
+              <AppButton variant="secondary" type="button" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
               <AppButton variant="primary" type="submit">
                 <Save :size="15" :stroke-width="2" />
-                <span>保存</span>
+                <span>{{ t("common.save") }}</span>
               </AppButton>
             </footer>
           </form>

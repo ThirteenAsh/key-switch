@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import type { ProviderSummary } from "../types/domain";
 
 defineProps<{ provider: Pick<ProviderSummary, "name" | "abbreviation" | "tone" | "logo" | "kind"> }>();
+const { t } = useI18n();
 </script>
 
 <template>
   <span class="provider-avatar" :class="`provider-avatar--${provider.tone}`">
-    <img v-if="provider.logo" :class="{ 'provider-avatar__custom-image': provider.kind === 'custom' }" :src="provider.logo" :alt="`${provider.name} 图标`" />
+    <img v-if="provider.logo" :class="{ 'provider-avatar__custom-image': provider.kind === 'custom' }" :src="provider.logo" :alt="t('common.providerIconAlt', { name: provider.name })" />
     <span v-else class="provider-abbr">{{ provider.abbreviation }}</span>
   </span>
 </template>
