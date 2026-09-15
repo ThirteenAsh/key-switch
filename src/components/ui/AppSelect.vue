@@ -19,6 +19,8 @@ const props = defineProps<{
   modelValue: string;
   options: AppSelectOption[];
   label: string;
+  fullWidth?: boolean;
+  placement?: "top" | "bottom";
 }>();
 
 const emit = defineEmits<{
@@ -156,7 +158,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="app-select" :class="{ 'is-open': open }">
+  <div ref="root" class="app-select" :class="{ 'is-open': open, 'app-select--full': fullWidth, 'app-select--top': placement === 'top' }">
     <button
       ref="trigger"
       class="app-select__trigger"
@@ -216,6 +218,11 @@ onBeforeUnmount(() => {
   position: relative;
   width: 190px;
   flex: 0 0 190px;
+}
+
+.app-select--full {
+  width: 100%;
+  flex-basis: auto;
 }
 
 .app-select__trigger {
@@ -317,6 +324,13 @@ onBeforeUnmount(() => {
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(16px);
   transform-origin: top right;
+  box-sizing: border-box;
+}
+
+.app-select--top .app-select__popover {
+  top: auto;
+  bottom: calc(100% + 7px);
+  transform-origin: bottom right;
 }
 
 .app-select__menu {
@@ -393,6 +407,11 @@ onBeforeUnmount(() => {
 .app-select-menu-leave-to {
   opacity: 0;
   transform: translateY(-7px) scale(0.975);
+}
+
+.app-select--top .app-select-menu-enter-from,
+.app-select--top .app-select-menu-leave-to {
+  transform: translateY(7px) scale(0.975);
 }
 
 .app-select-value-enter-active,

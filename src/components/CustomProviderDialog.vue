@@ -3,18 +3,22 @@ import { ref, watch } from "vue";
 import { ImagePlus, Plus, Trash2, X } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
+import ProviderValidationFields from "./ProviderValidationFields.vue";
+import type { ProviderValidation } from "../types/domain";
+import { createEmptyValidation, normalizeProviderValidation, validateProviderValidation } from "../utils/providerValidation";
 
 const props = defineProps<{ open: boolean }>();
 const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];
-  add: [payload: { name: string; platformUrl: string; logo?: string }];
+  add: [payload: { name: string; platformUrl: string; logo?: string; validation: ProviderValidation }];
 }>();
 
 const name = ref("");
 const platformUrl = ref("");
 const logo = ref("");
+const validation = ref<ProviderValidation>(createEmptyValidation());
 const error = ref("");
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -23,6 +27,7 @@ watch(() => props.open, (isOpen) => {
   name.value = "";
   platformUrl.value = "";
   logo.value = "";
+  validation.value = createEmptyValidation();
   error.value = "";
   if (fileInput.value) fileInput.value.value = "";
 });
@@ -92,7 +97,13 @@ function submit() {
     return;
   }
 
-  emit("add", { name: normalizedName, platformUrl: normalizedPlatformUrl, logo: logo.value || undefined });
+  const validationError = validateProviderValidation(validation.value);
+  if (validationError) {
+    error.value = t(`providerDialog.errors.${validationError}`);
+    return;
+  }
+
+  emit("add", { name: normalizedName, platformUrl: normalizedPlatformUrl, logo: logo.value || undefined, validation: normalizeProviderValidation(validation.value) });
 }
 </script>
 
@@ -140,6 +151,8 @@ function submit() {
               <input v-model="platformUrl" type="text" inputmode="url" placeholder="https://platform.example.com" autocomplete="url" @blur="ensureHttpsPrefix" />
             </label>
 
+            <ProviderValidationFields v-model="validation" />
+
             <p v-if="error" class="form-error" role="alert">{{ error }}</p>
             <footer>
               <AppButton variant="secondary" type="button" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
@@ -164,7 +177,10 @@ function submit() {
 .custom-provider-dialog {
   width: 500px;
   max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   padding: 24px;
+  box-sizing: border-box;
   border-radius: 16px;
   background: #fff;
   box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);

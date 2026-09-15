@@ -4,6 +4,7 @@ use std::{
     cmp::Ordering,
     fs::{self, OpenOptions},
     io::Write,
+    net::{IpAddr, SocketAddr},
     path::PathBuf,
     process::Command,
     sync::Mutex,
@@ -125,6 +126,8 @@ fn command_error_code(message: &str) -> &'static str {
         "PROVIDER_NOT_FOUND"
     } else if message.starts_with("供应商排序数据不完整") {
         "PROVIDER_ORDER_INVALID"
+    } else if message.starts_with("供应商检测配置无效") {
+        "PROVIDER_VALIDATION_INVALID"
     } else if message.starts_with("API Key 不能为空") {
         "API_KEY_REQUIRED"
     } else if message.starts_with("未找到 API Key") {
@@ -160,6 +163,34 @@ struct ApiKeyRecord {
     secret_id: String,
     status: String,
     last_checked_at: Option<String>,
+    #[serde(default)]
+    check_error_code: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "mode")]
+enum ValidationConfig {
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "openai-compatible")]
+    OpenAiCompatible {
+        #[serde(rename = "baseUrl")]
+        base_url: String,
+    },
+    #[serde(rename = "bearer")]
+    Bearer { endpoint: String },
+    #[serde(rename = "api-key-header")]
+    ApiKeyHeader {
+        endpoint: String,
+        #[serde(rename = "headerName")]
+        header_name: String,
+    },
+}
+
+impl Default for ValidationConfig {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -172,6 +203,8 @@ struct ProviderRecord {
     logo: Option<String>,
     kind: String,
     platform_url: Option<String>,
+    #[serde(default)]
+    validation: ValidationConfig,
     keys: Vec<ApiKeyRecord>,
 }
 
@@ -206,6 +239,7 @@ struct ApiKeySummary {
     masked_value: String,
     status: String,
     last_checked_at: Option<String>,
+    check_error_code: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -218,6 +252,8 @@ struct ProviderSummary {
     logo: Option<String>,
     kind: String,
     platform_url: Option<String>,
+    validation: ValidationConfig,
+    validation_supported: bool,
     keys: Vec<ApiKeySummary>,
 }
 
@@ -231,6 +267,8 @@ struct CreateProviderInput {
     logo: Option<String>,
     kind: String,
     platform_url: Option<String>,
+    #[serde(default)]
+    validation: ValidationConfig,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -238,6 +276,8 @@ struct UpdateProviderInput {
     id: String,
     name: String,
     platform_url: Option<String>,
+    #[serde(default)]
+    validation: ValidationConfig,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -628,9 +668,11 @@ fn key_summary(key: &ApiKeyRecord) -> Result<ApiKeySummary, String> {
         masked_value: mask(&key_value(key)?),
         status: key.status.clone(),
         last_checked_at: key.last_checked_at.clone(),
+        check_error_code: key.check_error_code.clone(),
     })
 }
 fn summary(provider: &ProviderRecord) -> Result<ProviderSummary, String> {
+    let validation_supported = key_validation_spec(provider).is_some();
     Ok(ProviderSummary {
         id: provider.id.clone(),
         name: provider.name.clone(),
@@ -639,116 +681,366 @@ fn summary(provider: &ProviderRecord) -> Result<ProviderSummary, String> {
         logo: provider.logo.clone(),
         kind: provider.kind.clone(),
         platform_url: provider.platform_url.clone(),
+        validation: provider.validation.clone(),
+        validation_supported,
         keys: provider
             .keys
             .iter()
-            .map(key_summary)
+            .map(|key| {
+                let mut result = key_summary(key)?;
+                if !validation_supported {
+                    result.status = "unsupported".into();
+                    result.last_checked_at = None;
+                    result.check_error_code = None;
+                }
+                Ok::<ApiKeySummary, String>(result)
+            })
             .collect::<Result<Vec<_>, _>>()?,
     })
 }
 
 enum KeyValidationSpec {
-    Bearer(&'static str),
-    ApiKeyHeader {
-        url: &'static str,
-        header_name: &'static str,
-    },
+    Bearer(String),
+    ApiKeyHeader { url: String, header_name: String },
     Anthropic,
 }
 
-fn key_validation_spec(provider_id: &str) -> Option<KeyValidationSpec> {
-    match provider_id {
+impl KeyValidationSpec {
+    fn endpoint(&self) -> &str {
+        match self {
+            Self::Bearer(url) | Self::ApiKeyHeader { url, .. } => url,
+            Self::Anthropic => "https://api.anthropic.com/v1/models?limit=1",
+        }
+    }
+}
+
+fn key_validation_spec(provider: &ProviderRecord) -> Option<KeyValidationSpec> {
+    let builtin = match provider.id.as_str() {
         "openai" => Some(KeyValidationSpec::Bearer(
-            "https://api.openai.com/v1/models",
+            "https://api.openai.com/v1/models".into(),
         )),
         "claude" | "anthropic" => Some(KeyValidationSpec::Anthropic),
         "gemini" | "aistudio" => Some(KeyValidationSpec::ApiKeyHeader {
-            url: "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1",
-            header_name: "x-goog-api-key",
+            url: "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1".into(),
+            header_name: "x-goog-api-key".into(),
         }),
-        "deepseek" => Some(KeyValidationSpec::Bearer("https://api.deepseek.com/models")),
+        "deepseek" => Some(KeyValidationSpec::Bearer(
+            "https://api.deepseek.com/models".into(),
+        )),
         "mimo" => Some(KeyValidationSpec::ApiKeyHeader {
-            url: "https://api.xiaomimimo.com/v1/models",
-            header_name: "api-key",
+            url: "https://api.xiaomimimo.com/v1/models".into(),
+            header_name: "api-key".into(),
         }),
         "qwen" => Some(KeyValidationSpec::Bearer(
-            "https://dashscope.aliyuncs.com/api/v1/deployments?page_no=1&page_size=1",
+            "https://dashscope.aliyuncs.com/api/v1/deployments?page_no=1&page_size=1".into(),
         )),
         "kimi" => Some(KeyValidationSpec::Bearer(
-            "https://api.moonshot.cn/v1/models",
+            "https://api.moonshot.cn/v1/models".into(),
         )),
-        "grok" => Some(KeyValidationSpec::Bearer("https://api.x.ai/v1/models")),
+        "grok" => Some(KeyValidationSpec::Bearer(
+            "https://api.x.ai/v1/models".into(),
+        )),
         "openrouter" => Some(KeyValidationSpec::Bearer(
-            "https://openrouter.ai/api/v1/key",
+            "https://openrouter.ai/api/v1/key".into(),
         )),
         "minimax" => Some(KeyValidationSpec::Bearer(
-            "https://api.minimaxi.com/v1/models",
+            "https://api.minimaxi.com/v1/models".into(),
         )),
         "doubao" => Some(KeyValidationSpec::Bearer(
-            "https://ark.cn-beijing.volces.com/ping",
+            "https://ark.cn-beijing.volces.com/ping".into(),
         )),
         "hunyuan" => Some(KeyValidationSpec::Bearer(
-            "https://tokenhub.tencentmaas.com/v1/models",
+            "https://tokenhub.tencentmaas.com/v1/models".into(),
         )),
         "qianfan" => Some(KeyValidationSpec::Bearer(
-            "https://qianfan.baidubce.com/v2/models",
+            "https://qianfan.baidubce.com/v2/models".into(),
         )),
         "zhipu" => Some(KeyValidationSpec::Bearer(
-            "https://open.bigmodel.cn/api/paas/v4/files",
+            "https://open.bigmodel.cn/api/paas/v4/files".into(),
         )),
         _ => None,
+    };
+    if provider.kind == "builtin" {
+        return builtin;
+    }
+
+    match &provider.validation {
+        ValidationConfig::None => None,
+        ValidationConfig::OpenAiCompatible { base_url } => Some(KeyValidationSpec::Bearer(
+            format!("{}/models", base_url.trim_end_matches('/')),
+        )),
+        ValidationConfig::Bearer { endpoint } => Some(KeyValidationSpec::Bearer(endpoint.clone())),
+        ValidationConfig::ApiKeyHeader {
+            endpoint,
+            header_name,
+        } => Some(KeyValidationSpec::ApiKeyHeader {
+            url: endpoint.clone(),
+            header_name: header_name.clone(),
+        }),
     }
 }
 
-fn classify_validation_status(status: reqwest::StatusCode) -> &'static str {
+#[derive(Debug, PartialEq)]
+struct ValidationOutcome {
+    status: &'static str,
+    error_code: Option<&'static str>,
+}
+
+fn classify_validation_status(status: reqwest::StatusCode) -> ValidationOutcome {
     if status.is_success() {
-        "valid"
+        ValidationOutcome {
+            status: "valid",
+            error_code: None,
+        }
     } else if status == reqwest::StatusCode::BAD_REQUEST
         || status == reqwest::StatusCode::UNAUTHORIZED
+        || status == reqwest::StatusCode::FORBIDDEN
     {
-        "invalid"
+        ValidationOutcome {
+            status: "invalid",
+            error_code: None,
+        }
+    } else if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        ValidationOutcome {
+            status: "error",
+            error_code: Some("rateLimited"),
+        }
+    } else if status.is_server_error() {
+        ValidationOutcome {
+            status: "error",
+            error_code: Some("serverUnavailable"),
+        }
+    } else if status.is_redirection() {
+        ValidationOutcome {
+            status: "error",
+            error_code: Some("endpointInvalid"),
+        }
     } else {
-        "error"
+        ValidationOutcome {
+            status: "error",
+            error_code: Some("unexpectedStatus"),
+        }
     }
 }
 
-fn validation_client() -> Result<reqwest::Client, String> {
+fn is_blocked_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ip) => {
+            let [first, second, ..] = ip.octets();
+            ip.is_private()
+                || ip.is_loopback()
+                || ip.is_link_local()
+                || ip.is_broadcast()
+                || ip.is_documentation()
+                || ip.is_unspecified()
+                || ip.is_multicast()
+                || first == 0
+                || (first == 100 && (64..=127).contains(&second))
+                || (first == 198 && (18..=19).contains(&second))
+                || first >= 240
+        }
+        IpAddr::V6(ip) => {
+            let segments = ip.segments();
+            ip.is_loopback()
+                || ip.is_unspecified()
+                || ip.is_unique_local()
+                || ip.is_unicast_link_local()
+                || ip.is_multicast()
+                || (segments[0] == 0x2001 && segments[1] == 0x0db8)
+                || ip
+                    .to_ipv4()
+                    .is_some_and(|mapped| is_blocked_ip(IpAddr::V4(mapped)))
+        }
+    }
+}
+
+fn parse_safe_validation_url(value: &str) -> Result<reqwest::Url, String> {
+    if value.len() > 2048 {
+        return Err("供应商检测配置无效：检测地址过长".into());
+    }
+    let url = reqwest::Url::parse(value)
+        .map_err(|_| "供应商检测配置无效：检测地址格式错误".to_string())?;
+    if url.scheme() != "https" {
+        return Err("供应商检测配置无效：检测地址必须使用 HTTPS".into());
+    }
+    if !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err("供应商检测配置无效：检测地址不能包含凭据、查询参数或片段".into());
+    }
+    let host = url
+        .host_str()
+        .ok_or_else(|| "供应商检测配置无效：检测地址缺少域名".to_string())?;
+    let lower_host = host.to_ascii_lowercase();
+    if lower_host == "localhost"
+        || lower_host.ends_with(".localhost")
+        || lower_host.ends_with(".local")
+        || lower_host.ends_with(".internal")
+        || host.parse::<IpAddr>().is_ok_and(is_blocked_ip)
+    {
+        return Err("供应商检测配置无效：不允许本地或私有网络地址".into());
+    }
+    Ok(url)
+}
+
+fn valid_header_name(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    !value.is_empty()
+        && value.len() <= 64
+        && reqwest::header::HeaderName::from_bytes(value.as_bytes()).is_ok()
+        && !matches!(
+            lower.as_str(),
+            "authorization"
+                | "cookie"
+                | "content-length"
+                | "host"
+                | "proxy-authorization"
+                | "set-cookie"
+        )
+}
+
+fn normalize_validation_config(
+    kind: &str,
+    validation: ValidationConfig,
+) -> Result<ValidationConfig, String> {
+    if kind != "custom" {
+        return Ok(ValidationConfig::None);
+    }
+    match validation {
+        ValidationConfig::None => Ok(ValidationConfig::None),
+        ValidationConfig::OpenAiCompatible { base_url } => {
+            let normalized = base_url.trim().trim_end_matches('/').to_string();
+            parse_safe_validation_url(&normalized)?;
+            Ok(ValidationConfig::OpenAiCompatible {
+                base_url: normalized,
+            })
+        }
+        ValidationConfig::Bearer { endpoint } => {
+            let normalized = endpoint.trim().to_string();
+            parse_safe_validation_url(&normalized)?;
+            Ok(ValidationConfig::Bearer {
+                endpoint: normalized,
+            })
+        }
+        ValidationConfig::ApiKeyHeader {
+            endpoint,
+            header_name,
+        } => {
+            let normalized_endpoint = endpoint.trim().to_string();
+            let normalized_header = header_name.trim().to_string();
+            parse_safe_validation_url(&normalized_endpoint)?;
+            if !valid_header_name(&normalized_header) {
+                return Err("供应商检测配置无效：请求头名称无效或不受允许".into());
+            }
+            Ok(ValidationConfig::ApiKeyHeader {
+                endpoint: normalized_endpoint,
+                header_name: normalized_header,
+            })
+        }
+    }
+}
+
+struct ResolvedValidationEndpoint {
+    host: String,
+    addresses: Vec<SocketAddr>,
+}
+
+async fn resolve_validation_endpoint(
+    spec: &KeyValidationSpec,
+) -> Result<ResolvedValidationEndpoint, &'static str> {
+    let url = reqwest::Url::parse(spec.endpoint()).map_err(|_| "endpointInvalid")?;
+    let host = url.host_str().ok_or("endpointInvalid")?;
+    if host.parse::<IpAddr>().is_ok_and(is_blocked_ip) {
+        return Err("endpointInvalid");
+    }
+    let port = url.port_or_known_default().ok_or("endpointInvalid")?;
+    let addresses = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(|_| "network")?;
+    let mut safe_addresses = Vec::new();
+    for address in addresses {
+        if is_blocked_ip(address.ip()) {
+            return Err("endpointInvalid");
+        }
+        safe_addresses.push(address);
+    }
+    if safe_addresses.is_empty() {
+        return Err("network");
+    }
+    Ok(ResolvedValidationEndpoint {
+        host: host.into(),
+        addresses: safe_addresses,
+    })
+}
+
+fn validation_client(resolved: &ResolvedValidationEndpoint) -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
         .user_agent("Key-Switch/1.0.1")
+        .resolve_to_addrs(&resolved.host, &resolved.addresses)
         .build()
         .map_err(|e| format!("无法初始化网络客户端：{e}"))
 }
 
-async fn validate_key(client: &reqwest::Client, provider_id: &str, value: &str) -> &'static str {
-    let Some(spec) = key_validation_spec(provider_id) else {
-        return "error";
-    };
-
+fn build_validation_request(
+    client: &reqwest::Client,
+    spec: &KeyValidationSpec,
+    value: &str,
+) -> Result<reqwest::Request, ()> {
     let request = match spec {
         KeyValidationSpec::Bearer(url) => client.get(url).bearer_auth(value),
         KeyValidationSpec::ApiKeyHeader { url, header_name } => {
-            client.get(url).header(header_name, value)
+            let header =
+                reqwest::header::HeaderName::from_bytes(header_name.as_bytes()).map_err(|_| ())?;
+            client.get(url).header(header, value)
         }
         KeyValidationSpec::Anthropic => client
             .get("https://api.anthropic.com/v1/models?limit=1")
             .header("x-api-key", value)
             .header("anthropic-version", "2023-06-01"),
     };
+    request.build().map_err(|_| ())
+}
 
-    match request.send().await {
+async fn validate_key(
+    client: &reqwest::Client,
+    spec: &KeyValidationSpec,
+    value: &str,
+) -> ValidationOutcome {
+    let request = match build_validation_request(client, spec, value) {
+        Ok(request) => request,
+        Err(()) => {
+            return ValidationOutcome {
+                status: "error",
+                error_code: Some("endpointInvalid"),
+            }
+        }
+    };
+
+    match client.execute(request).await {
         Ok(response) => classify_validation_status(response.status()),
-        Err(_) => "error",
+        Err(error) => ValidationOutcome {
+            status: "error",
+            error_code: Some(if error.is_timeout() {
+                "timeout"
+            } else {
+                "network"
+            }),
+        },
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_validation_status, command_error_code, load_settings_from_file,
-        save_settings_to_file, valid_locale_preference, AppSettings, SemVersion,
+        build_validation_request, classify_validation_status, command_error_code,
+        load_settings_from_file, normalize_validation_config, parse_safe_validation_url,
+        save_settings_to_file, valid_header_name, valid_locale_preference, AppData, AppSettings,
+        KeyValidationSpec, SemVersion, ValidationConfig, ValidationOutcome,
         SETTINGS_BACKUP_FILE_NAME, SETTINGS_FILE_NAME, SETTINGS_SCHEMA_VERSION,
         SETTINGS_TEMP_FILE_NAME,
     };
@@ -757,24 +1049,108 @@ mod tests {
 
     #[test]
     fn classifies_key_validation_responses() {
-        assert_eq!(classify_validation_status(StatusCode::OK), "valid");
         assert_eq!(
-            classify_validation_status(StatusCode::BAD_REQUEST),
-            "invalid"
+            classify_validation_status(StatusCode::OK),
+            ValidationOutcome {
+                status: "valid",
+                error_code: None
+            }
         );
         assert_eq!(
             classify_validation_status(StatusCode::UNAUTHORIZED),
-            "invalid"
+            ValidationOutcome {
+                status: "invalid",
+                error_code: None
+            }
         );
-        assert_eq!(classify_validation_status(StatusCode::FORBIDDEN), "error");
+        assert_eq!(
+            classify_validation_status(StatusCode::FORBIDDEN),
+            ValidationOutcome {
+                status: "invalid",
+                error_code: None
+            }
+        );
         assert_eq!(
             classify_validation_status(StatusCode::TOO_MANY_REQUESTS),
-            "error"
+            ValidationOutcome {
+                status: "error",
+                error_code: Some("rateLimited")
+            }
         );
         assert_eq!(
             classify_validation_status(StatusCode::INTERNAL_SERVER_ERROR),
-            "error"
+            ValidationOutcome {
+                status: "error",
+                error_code: Some("serverUnavailable")
+            }
         );
+    }
+
+    #[test]
+    fn keeps_old_provider_data_compatible() {
+        let data: AppData = serde_json::from_str(
+            r#"{"providers":[{"id":"custom-old","name":"Old","abbreviation":"OL","tone":"gray","logo":null,"kind":"custom","platformUrl":"https://example.com","keys":[{"id":"key-1","providerId":"custom-old","remark":"","secretId":"key-1","status":"untested","lastCheckedAt":null}]}]}"#,
+        )
+        .unwrap();
+        assert_eq!(data.providers[0].validation, ValidationConfig::None);
+        assert_eq!(data.providers[0].keys[0].check_error_code, None);
+    }
+
+    #[test]
+    fn validates_custom_provider_check_configuration() {
+        assert!(parse_safe_validation_url("https://api.example.com/v1/models").is_ok());
+        for unsafe_url in [
+            "http://api.example.com/v1/models",
+            "https://localhost/v1/models",
+            "https://127.0.0.1/v1/models",
+            "https://10.0.0.1/v1/models",
+            "https://user:pass@example.com/v1/models",
+            "https://api.example.com/v1/models?key=value",
+        ] {
+            assert!(
+                parse_safe_validation_url(unsafe_url).is_err(),
+                "{unsafe_url}"
+            );
+        }
+        assert!(valid_header_name("x-api-key"));
+        assert!(!valid_header_name("Authorization"));
+        assert!(!valid_header_name("bad header"));
+
+        assert_eq!(
+            normalize_validation_config(
+                "custom",
+                ValidationConfig::OpenAiCompatible {
+                    base_url: " https://api.example.com/v1/ ".into(),
+                },
+            )
+            .unwrap(),
+            ValidationConfig::OpenAiCompatible {
+                base_url: "https://api.example.com/v1".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn builds_supported_key_authentication_requests() {
+        let client = reqwest::Client::new();
+        let bearer = build_validation_request(
+            &client,
+            &KeyValidationSpec::Bearer("https://api.example.com/v1/models".into()),
+            "test-key",
+        )
+        .unwrap();
+        assert_eq!(bearer.headers()["authorization"], "Bearer test-key");
+
+        let header = build_validation_request(
+            &client,
+            &KeyValidationSpec::ApiKeyHeader {
+                url: "https://api.example.com/v1/models".into(),
+                header_name: "x-api-key".into(),
+            },
+            "test-key",
+        )
+        .unwrap();
+        assert_eq!(header.headers()["x-api-key"], "test-key");
     }
 
     #[test]
@@ -800,6 +1176,10 @@ mod tests {
         assert_eq!(
             command_error_code("无法保存设置文件：disk full"),
             "SETTINGS_SAVE_FAILED"
+        );
+        assert_eq!(
+            command_error_code("供应商检测配置无效：检测地址必须使用 HTTPS"),
+            "PROVIDER_VALIDATION_INVALID"
         );
         assert_eq!(command_error_code("unexpected"), "UNKNOWN");
     }
@@ -1121,6 +1501,7 @@ fn create_provider(
     {
         return Err("供应商已存在".into());
     }
+    let validation = normalize_validation_config(&input.kind, input.validation)?;
     let provider = ProviderRecord {
         id: input.id,
         name: input.name.trim().into(),
@@ -1129,6 +1510,7 @@ fn create_provider(
         logo: input.logo,
         kind: input.kind,
         platform_url: input.platform_url.filter(|u| !u.trim().is_empty()),
+        validation,
         keys: vec![],
     };
     let result = summary(&provider)?;
@@ -1158,8 +1540,23 @@ fn update_provider(
         .iter_mut()
         .find(|p| p.id == input.id)
         .ok_or("未找到供应商")?;
+    let next_validation = normalize_validation_config(&provider.kind, input.validation)?;
+    let validation_changed = provider.validation != next_validation;
     provider.name = input.name.trim().into();
     provider.platform_url = input.platform_url.filter(|u| !u.trim().is_empty());
+    provider.validation = next_validation;
+    if validation_changed {
+        let validation_supported = key_validation_spec(provider).is_some();
+        for key in &mut provider.keys {
+            key.status = if validation_supported {
+                "untested".into()
+            } else {
+                "unsupported".into()
+            };
+            key.last_checked_at = None;
+            key.check_error_code = None;
+        }
+    }
     let result = summary(provider)?;
     save_data(&app, &data)?;
     let _ = append_log(&app, "INFO", "provider_updated", "success");
@@ -1220,6 +1617,7 @@ fn create_api_key(
         .iter_mut()
         .find(|p| p.id == input.provider_id)
         .ok_or("未找到供应商")?;
+    let validation_supported = key_validation_spec(provider).is_some();
     let id = format!("key-{}", now());
     keyring_entry(&id)?
         .set_password(input.value.trim())
@@ -1229,8 +1627,14 @@ fn create_api_key(
         provider_id: input.provider_id,
         remark: input.remark.trim().into(),
         secret_id: id,
-        status: "untested".into(),
+        status: if validation_supported {
+            "untested"
+        } else {
+            "unsupported"
+        }
+        .into(),
         last_checked_at: None,
+        check_error_code: None,
     };
     let result = key_summary(&key)?;
     provider.keys.push(key);
@@ -1273,6 +1677,7 @@ fn update_api_key(
     key.remark = next_remark;
     key.status = "untested".into();
     key.last_checked_at = None;
+    key.check_error_code = None;
     let result = ApiKeySummary {
         id: key.id.clone(),
         provider_id: key.provider_id.clone(),
@@ -1280,6 +1685,7 @@ fn update_api_key(
         masked_value: mask(next_value),
         status: key.status.clone(),
         last_checked_at: None,
+        check_error_code: None,
     };
 
     if let Err(error) = save_data(&app, &data) {
@@ -1339,13 +1745,43 @@ async fn check_provider_keys(
         .iter_mut()
         .find(|p| p.id == provider_id)
         .ok_or("未找到供应商")?;
-    let validation_provider_id = provider.id.clone();
-    let client = validation_client()?;
+    let Some(validation_spec) = key_validation_spec(provider) else {
+        for key in &mut provider.keys {
+            key.status = "unsupported".into();
+            key.last_checked_at = None;
+            key.check_error_code = None;
+        }
+        let result = provider
+            .keys
+            .iter()
+            .map(key_summary)
+            .collect::<Result<Vec<_>, _>>()?;
+        save_data(&app, &data)?;
+        return Ok(result);
+    };
+    let resolved = match resolve_validation_endpoint(&validation_spec).await {
+        Ok(resolved) => resolved,
+        Err(error_code) => {
+            for key in &mut provider.keys {
+                key.status = "error".into();
+                key.last_checked_at = Some(now());
+                key.check_error_code = Some(error_code.into());
+            }
+            let result = provider
+                .keys
+                .iter()
+                .map(key_summary)
+                .collect::<Result<Vec<_>, _>>()?;
+            save_data(&app, &data)?;
+            return Ok(result);
+        }
+    };
+    let client = validation_client(&resolved)?;
     for key in &mut provider.keys {
         let value = key_value(key)?;
-        key.status = validate_key(&client, &validation_provider_id, &value)
-            .await
-            .into();
+        let outcome = validate_key(&client, &validation_spec, &value).await;
+        key.status = outcome.status.into();
+        key.check_error_code = outcome.error_code.map(str::to_string);
         key.last_checked_at = Some(now());
     }
     let result = provider
@@ -1384,17 +1820,36 @@ async fn check_api_key(
         .iter_mut()
         .find(|provider| provider.id == provider_id)
         .ok_or("未找到供应商")?;
-    let validation_provider_id = provider.id.clone();
+    let validation_spec = key_validation_spec(provider);
     let key = provider
         .keys
         .iter_mut()
         .find(|key| key.id == key_id)
         .ok_or("未找到 API Key")?;
+    let Some(validation_spec) = validation_spec else {
+        key.status = "unsupported".into();
+        key.last_checked_at = None;
+        key.check_error_code = None;
+        let result = key_summary(key)?;
+        save_data(&app, &data)?;
+        return Ok(result);
+    };
+    let resolved = match resolve_validation_endpoint(&validation_spec).await {
+        Ok(resolved) => resolved,
+        Err(error_code) => {
+            key.status = "error".into();
+            key.last_checked_at = Some(now());
+            key.check_error_code = Some(error_code.into());
+            let result = key_summary(key)?;
+            save_data(&app, &data)?;
+            return Ok(result);
+        }
+    };
     let value = key_value(key)?;
-    let client = validation_client()?;
-    key.status = validate_key(&client, &validation_provider_id, &value)
-        .await
-        .into();
+    let client = validation_client(&resolved)?;
+    let outcome = validate_key(&client, &validation_spec, &value).await;
+    key.status = outcome.status.into();
+    key.check_error_code = outcome.error_code.map(str::to_string);
     key.last_checked_at = Some(now());
     let result = ApiKeySummary {
         id: key.id.clone(),
@@ -1403,6 +1858,7 @@ async fn check_api_key(
         masked_value: mask(&value),
         status: key.status.clone(),
         last_checked_at: key.last_checked_at.clone(),
+        check_error_code: key.check_error_code.clone(),
     };
     save_data(&app, &data)?;
     let _ = append_log(

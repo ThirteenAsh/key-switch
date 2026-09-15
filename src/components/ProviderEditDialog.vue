@@ -3,7 +3,9 @@ import { ref, watch } from "vue";
 import { Save, X } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
-import type { ProviderSummary } from "../types/domain";
+import ProviderValidationFields from "./ProviderValidationFields.vue";
+import type { ProviderSummary, ProviderValidation } from "../types/domain";
+import { normalizeProviderValidation, validateProviderValidation } from "../utils/providerValidation";
 
 const props = defineProps<{
   open: boolean;
@@ -13,17 +15,19 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];
-  save: [payload: { id: string; name: string; platformUrl: string }];
+  save: [payload: { id: string; name: string; platformUrl: string; validation: ProviderValidation }];
 }>();
 
 const name = ref("");
 const platformUrl = ref("");
+const validation = ref<ProviderValidation>({ mode: "none" });
 const error = ref("");
 
 watch(() => [props.open, props.provider] as const, ([isOpen, provider]) => {
   if (!isOpen || !provider) return;
   name.value = provider.name;
   platformUrl.value = provider.platformUrl ?? "";
+  validation.value = structuredClone(provider.validation);
   error.value = "";
 }, { immediate: true });
 
@@ -57,7 +61,21 @@ function submit() {
     return;
   }
 
-  emit("save", { id: props.provider.id, name: normalizedName, platformUrl: normalizedPlatformUrl });
+
+  if (props.provider.kind === "custom") {
+    const validationError = validateProviderValidation(validation.value);
+    if (validationError) {
+      error.value = t(`providerDialog.errors.${validationError}`);
+      return;
+    }
+  }
+
+  emit("save", {
+    id: props.provider.id,
+    name: normalizedName,
+    platformUrl: normalizedPlatformUrl,
+    validation: props.provider.kind === "custom" ? normalizeProviderValidation(validation.value) : { mode: "none" },
+  });
 }
 </script>
 
@@ -85,6 +103,7 @@ function submit() {
               <span>{{ t("providerDialog.platformUrl") }}</span>
               <input v-model="platformUrl" type="text" inputmode="url" placeholder="https://platform.example.com" autocomplete="url" @blur="ensureHttpsPrefix" />
             </label>
+            <ProviderValidationFields v-if="provider.kind === 'custom'" v-model="validation" />
             <p v-if="error" class="provider-edit-error" role="alert">{{ error }}</p>
             <footer>
               <AppButton variant="secondary" type="button" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
@@ -114,7 +133,10 @@ function submit() {
 .provider-edit-dialog {
   width: 480px;
   max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   padding: 24px;
+  box-sizing: border-box;
   border-radius: 16px;
   background: #fff;
   box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);

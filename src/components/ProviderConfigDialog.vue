@@ -3,9 +3,11 @@ import { computed, ref, watch } from "vue";
 import { Check, ImagePlus, Plus, Trash2, X } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
+import ProviderValidationFields from "./ProviderValidationFields.vue";
 import { builtinProviderCatalog, getBuiltinProviderName } from "../data/providerCatalog";
 import { effectiveLocale } from "../i18n";
-import type { ProviderSummary } from "../types/domain";
+import type { ProviderSummary, ProviderValidation } from "../types/domain";
+import { createEmptyValidation, normalizeProviderValidation, validateProviderValidation } from "../utils/providerValidation";
 
 const props = defineProps<{
   open: boolean;
@@ -16,7 +18,7 @@ const { t } = useI18n();
 const emit = defineEmits<{
   close: [];
   addBuiltin: [providerId: string];
-  addCustom: [name: string, platformUrl: string, logo?: string];
+  addCustom: [name: string, platformUrl: string, logo: string | undefined, validation: ProviderValidation];
 }>();
 
 const mode = ref<"builtin" | "custom">("builtin");
@@ -24,6 +26,7 @@ const selectedProviderId = ref("");
 const customName = ref("");
 const customPlatformUrl = ref("");
 const customLogo = ref("");
+const customValidation = ref<ProviderValidation>(createEmptyValidation());
 const avatarInput = ref<HTMLInputElement | null>(null);
 const error = ref("");
 
@@ -43,6 +46,7 @@ watch(() => props.open, (isOpen) => {
   customName.value = "";
   customPlatformUrl.value = "";
   customLogo.value = "";
+  customValidation.value = createEmptyValidation();
   if (avatarInput.value) avatarInput.value.value = "";
   mode.value = "builtin";
 });
@@ -61,7 +65,12 @@ function submitCustom() {
     error.value = t("providerDialog.errors.nameRequired");
     return;
   }
-  emit("addCustom", name, ensureHttpsPrefix(), customLogo.value || undefined);
+  const validationError = validateProviderValidation(customValidation.value);
+  if (validationError) {
+    error.value = t(`providerDialog.errors.${validationError}`);
+    return;
+  }
+  emit("addCustom", name, ensureHttpsPrefix(), customLogo.value || undefined, normalizeProviderValidation(customValidation.value));
 }
 
 function ensureHttpsPrefix() {
@@ -221,6 +230,7 @@ function removeAvatar() {
                     @blur="ensureHttpsPrefix"
                   />
                 </div>
+                <ProviderValidationFields v-model="customValidation" />
               </div>
             </Transition>
           </div>
@@ -481,6 +491,7 @@ function removeAvatar() {
   gap: 14px;
   height: 100%;
   padding: 0 4px;
+  overflow-y: auto;
 }
 
 .custom-avatar-field {

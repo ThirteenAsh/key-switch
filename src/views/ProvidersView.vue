@@ -8,7 +8,7 @@ import CustomProviderDialog from "../components/CustomProviderDialog.vue";
 import ProviderEditDialog from "../components/ProviderEditDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { useDashboardStore } from "../stores/dashboard";
-import type { ProviderSummary } from "../types/domain";
+import type { ProviderSummary, ProviderValidation } from "../types/domain";
 import { translateAppError } from "../i18n/errors";
 
 const store = useDashboardStore();
@@ -31,9 +31,9 @@ function openProviderConfiguration(provider: ProviderSummary) {
   editDialogOpen.value = true;
 }
 
-async function addCustomProvider(payload: { name: string; platformUrl: string; logo?: string }) {
+async function addCustomProvider(payload: { name: string; platformUrl: string; logo?: string; validation: ProviderValidation }) {
   try {
-    if (!await store.addCustomProvider(payload.name, payload.platformUrl, payload.logo)) {
+    if (!await store.addCustomProvider(payload)) {
       notice.value = t("providers.notices.addFailed");
       return;
     }
@@ -48,9 +48,9 @@ async function addCustomProvider(payload: { name: string; platformUrl: string; l
   }
 }
 
-async function saveProviderConfiguration(payload: { id: string; name: string; platformUrl: string }) {
+async function saveProviderConfiguration(payload: { id: string; name: string; platformUrl: string; validation: ProviderValidation }) {
   try {
-    if (!await store.updateProviderConfiguration(payload.id, payload.name, payload.platformUrl)) {
+    if (!await store.updateProviderConfiguration(payload.id, payload.name, payload.platformUrl, payload.validation)) {
       notice.value = t("providers.notices.saveFailed");
       return;
     }

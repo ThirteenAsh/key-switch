@@ -543,6 +543,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: #f1f5f9;
 }
 
+.status-badge--unsupported {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
 .status-badge--invalid {
   color: #dc2626;
   background: #fef2f2;
@@ -556,6 +561,18 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .status-badge--checking {
   color: #2563eb;
   background: #eff6ff;
+}
+
+.key-status-detail {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.key-status-detail time {
+  color: #94a3b8;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 /* 空状态 */

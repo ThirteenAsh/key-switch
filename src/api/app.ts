@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ApiKeySummary, ProviderSummary } from "../types/domain";
+import type { ApiKeySummary, ProviderSummary, ProviderValidation } from "../types/domain";
 import type { AppErrorPayload } from "../i18n/errors";
 
 export interface AppInfo {
@@ -52,8 +52,8 @@ export const installAppUpdate = (releaseTag: string) => desktopInvoke<void>("ins
 export const openDataDirectory = () => desktopInvoke<void>("open_data_directory");
 export const openLogDirectory = () => desktopInvoke<void>("open_log_directory");
 export const clearLogs = () => desktopInvoke<void>("clear_logs");
-export const createProvider = (input: Omit<ProviderSummary, "keys">) => desktopInvoke<ProviderSummary>("create_provider", { input });
-export const updateProvider = (input: { id: string; name: string; platformUrl?: string }) => desktopInvoke<ProviderSummary>("update_provider", { input });
+export const createProvider = (input: Omit<ProviderSummary, "keys" | "validationSupported">) => desktopInvoke<ProviderSummary>("create_provider", { input });
+export const updateProvider = (input: { id: string; name: string; platformUrl?: string; validation: ProviderValidation }) => desktopInvoke<ProviderSummary>("update_provider", { input });
 export const deleteProvider = (providerId: string) => desktopInvoke<void>("delete_provider", { providerId });
 export const reorderProviders = (providerIds: string[]) => desktopInvoke<void>("reorder_providers", { providerIds });
 export const createApiKey = (input: { providerId: string; remark: string; value: string }) => desktopInvoke<ApiKeySummary>("create_api_key", { input });

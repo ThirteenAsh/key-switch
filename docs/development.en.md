@@ -149,6 +149,15 @@ Development rules:
 - Review `src-tauri/capabilities/` before adding a Tauri plugin or operating-system capability, and keep permissions minimal.
 - Never commit real API Keys in source, fixtures, Issues, pull requests, logs, or screenshots.
 
+### Custom provider key checks
+
+- Custom providers default to `none`. Existing records without a check configuration must also fall back to `none` and the unsupported status.
+- `platformUrl` is only for opening the management console and must not be used as a check endpoint. Check configuration is stored separately in provider metadata and currently supports OpenAI-compatible, Bearer token, and API key header modes.
+- A check configuration stores only an HTTPS endpoint, authentication mode, and a non-sensitive header name. The full key is still read temporarily from the system credential store by Rust only.
+- Custom check URLs must not contain credentials, query parameters, or fragments. Loopback, private, link-local, reserved addresses, and hostnames resolving to them are rejected, and HTTP redirects remain disabled.
+- Check requests do not read or log response bodies. Rate limits, timeouts, network failures, server failures, and endpoint errors must use distinct stable, non-sensitive result codes and must not be treated as invalid keys.
+- Changing a provider check configuration must clear previous key check timestamps and results. No network request may be made when checking is unsupported.
+
 ## 9. Change checklist
 
 - UI changes: verify all four locales, long text, keyboard interaction, and reduced motion.

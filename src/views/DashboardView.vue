@@ -28,7 +28,7 @@ import { useDashboardStore } from "../stores/dashboard";
 import { copyApiKey } from "../api/app";
 import { effectiveLocale } from "../i18n";
 import { translateAppError } from "../i18n/errors";
-import type { ApiKeySummary, ProviderSummary } from "../types/domain";
+import type { ApiKeySummary, ProviderSummary, ProviderValidation } from "../types/domain";
 
 const store = useDashboardStore();
 const { t } = useI18n();
@@ -62,6 +62,10 @@ async function handleCopy(keyId: string) {
 async function handleRefreshProvider(providerId: string, event: MouseEvent) {
   event.stopPropagation();
   const provider = store.providers.find((item) => item.id === providerId);
+  if (provider && !provider.validationSupported) {
+    notify(t("dashboard.notices.validationUnsupported"));
+    return;
+  }
   if (checkingProviderId.value || provider?.keys.some((key) => key.status === "checking")) return;
   checkingProviderId.value = providerId;
   notify(t("dashboard.notices.checkingProvider"));
@@ -70,7 +74,8 @@ async function handleRefreshProvider(providerId: string, event: MouseEvent) {
     const validCount = keys.filter((key) => key.status === "valid").length;
     const invalidCount = keys.filter((key) => key.status === "invalid").length;
     const errorCount = keys.filter((key) => key.status === "error").length;
-    notify(t("dashboard.notices.checkComplete", { valid: validCount, invalid: invalidCount, error: errorCount }));
+    const unsupportedCount = keys.filter((key) => key.status === "unsupported").length;
+    notify(t("dashboard.notices.checkComplete", { valid: validCount, invalid: invalidCount, error: errorCount, unsupported: unsupportedCount }));
   }
   catch (error) { notify(translateAppError(error, "dashboard.notices.checkFailed")); }
   finally { checkingProviderId.value = null; }
@@ -82,11 +87,22 @@ function openCreateKeyDialog(provider: ProviderSummary) {
 }
 
 async function handleCheckKey(providerId: string, keyId: string) {
+  const provider = store.providers.find((item) => item.id === providerId);
+  if (provider && !provider.validationSupported) {
+    notify(t("dashboard.notices.validationUnsupported"));
+    return;
+  }
   try {
     const key = await store.checkKey(providerId, keyId);
     const message = key.status === "valid"
       ? t("dashboard.notices.keyValid")
-      : key.status === "invalid" ? t("dashboard.notices.keyInvalid") : t("dashboard.notices.keyCheckError");
+      : key.status === "invalid"
+        ? t("dashboard.notices.keyInvalid")
+        : key.status === "unsupported"
+          ? t("dashboard.notices.validationUnsupported")
+          : key.checkErrorCode
+            ? t(`statusReasons.${key.checkErrorCode}`)
+            : t("dashboard.notices.keyCheckError");
     notify(message);
   } catch (error) { notify(translateAppError(error, "dashboard.notices.checkFailed")); }
 }
@@ -99,6 +115,20 @@ function openEditKeyDialog(provider: ProviderSummary, key: ApiKeySummary) {
 function closeKeyDialog() {
   keyDialogProvider.value = null;
   editingKey.value = null;
+}
+
+function formatLastCheckedAt(value: string): string {
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp)) return "";
+  return new Intl.DateTimeFormat(effectiveLocale.value, {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(timestamp));
+}
+
+function lastCheckedIso(value: string): string | undefined {
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : undefined;
 }
 
 async function saveKey(payload: { remark: string; value: string }) {
@@ -536,9 +566,9 @@ async function addBuiltinProvider(providerId: string) {
   }
 }
 
-async function addCustomProvider(name: string, platformUrl: string, logo?: string) {
+async function addCustomProvider(name: string, platformUrl: string, logo: string | undefined, validation: ProviderValidation) {
   try {
-    if (!await store.addCustomProvider(name, platformUrl, logo)) {
+    if (!await store.addCustomProvider({ name, platformUrl, logo, validation })) {
       notify(t("dashboard.notices.providerExists"));
       return;
     }
@@ -641,9 +671,9 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
               <button
                 class="refresh-btn"
                 :class="{ 'is-spinning': checkingProviderId === provider.id }"
-                :disabled="checkingProviderId === provider.id || provider.keys.some((key) => key.status === 'checking')"
-                :title="t('dashboard.refreshStatus')"
-                :aria-label="t('dashboard.refreshStatus')"
+                :disabled="!provider.validationSupported || provider.keys.length === 0 || checkingProviderId === provider.id || provider.keys.some((key) => key.status === 'checking')"
+                :title="t(provider.validationSupported ? 'dashboard.refreshStatus' : 'dashboard.validationUnsupported')"
+                :aria-label="t(provider.validationSupported ? 'dashboard.refreshStatus' : 'dashboard.validationUnsupported')"
                 type="button"
                 @click="handleRefreshProvider(provider.id, $event)"
               >
@@ -704,14 +734,22 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                     <td class="masked-key">
                       <code>{{ key.maskedValue }}</code>
                     </td>
-                    <td><StatusBadge :status="key.status" /></td>
+                    <td>
+                      <div class="key-status-detail">
+                        <StatusBadge :status="key.status" :error-code="key.checkErrorCode" />
+                        <time v-if="key.lastCheckedAt" :datetime="lastCheckedIso(key.lastCheckedAt)">
+                          {{ t("dashboard.lastChecked", { time: formatLastCheckedAt(key.lastCheckedAt) }) }}
+                        </time>
+                      </div>
+                    </td>
                     <td><span class="key-actions">
                       <AppButton
                         variant="ghost"
                         size="icon-sm"
                         :loading="key.status === 'checking'"
-                        :title="t('dashboard.actions.checkKey')"
-                        :aria-label="t('dashboard.actions.checkKey')"
+                        :disabled="!provider.validationSupported"
+                        :title="t(provider.validationSupported ? 'dashboard.actions.checkKey' : 'dashboard.validationUnsupported')"
+                        :aria-label="t(provider.validationSupported ? 'dashboard.actions.checkKey' : 'dashboard.validationUnsupported')"
                         @click="handleCheckKey(provider.id, key.id)"
                       >
                         <ShieldCheck :size="15" :stroke-width="2" />
