@@ -27,7 +27,9 @@ watch(() => [props.open, props.provider] as const, ([isOpen, provider]) => {
   if (!isOpen || !provider) return;
   name.value = provider.name;
   platformUrl.value = provider.platformUrl ?? "";
-  validation.value = structuredClone(provider.validation);
+  // provider 来自 Pinia 响应式状态，不能直接交给 structuredClone；这些配置只包含
+  // 字符串字段，展开为普通对象即可避免编辑弹窗与列表状态互相修改。
+  validation.value = { ...provider.validation };
   error.value = "";
 }, { immediate: true });
 
@@ -138,7 +140,7 @@ function submit() {
   padding: 24px;
   box-sizing: border-box;
   border-radius: 16px;
-  background: #fff;
+  background: var(--surface-raised);
   box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);
 }
 
@@ -151,13 +153,13 @@ function submit() {
 
 .provider-edit-header h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 18px;
 }
 
 .provider-edit-header p {
   margin: 4px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12.5px;
 }
 
@@ -170,7 +172,7 @@ function submit() {
 .provider-edit-form label {
   display: grid;
   gap: 7px;
-  color: #1e293b;
+  color: var(--text-strong);
   font-size: 13px;
   font-weight: 600;
 }
@@ -178,25 +180,25 @@ function submit() {
 .provider-edit-form input {
   height: 42px;
   padding: 0 13px;
-  color: #0f172a;
+  color: var(--text-primary);
   font: inherit;
   font-weight: 400;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 9px;
   outline: 0;
-  background: #f8fafc;
+  background: var(--surface-app);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .provider-edit-form input:focus {
   border-color: #38bdf8;
-  background: #fff;
+  background: var(--surface-raised);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
 }
 
 .provider-edit-error {
   margin: -6px 0 0;
-  color: #dc2626;
+  color: var(--danger-text);
   font-size: 12px;
 }
 

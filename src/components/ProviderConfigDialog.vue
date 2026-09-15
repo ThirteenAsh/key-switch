@@ -281,7 +281,7 @@ function removeAvatar() {
   max-width: calc(100vw - 32px);
   padding: 24px 26px;
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--surface-raised);
   box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);
   box-sizing: border-box;
 }
@@ -298,12 +298,12 @@ function removeAvatar() {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .dialog-subtitle {
   margin: 4px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12.5px;
   line-height: 1.4;
 }
@@ -315,7 +315,7 @@ function removeAvatar() {
   grid-template-columns: 1fr 1fr;
   margin-top: 18px;
   padding: 3px;
-  background: #f1f5f9;
+  background: var(--surface-muted);
   border-radius: 9px;
   user-select: none;
   box-sizing: border-box;
@@ -327,7 +327,7 @@ function removeAvatar() {
   left: 3px;
   width: calc(50% - 3px);
   height: calc(100% - 6px);
-  background: #ffffff;
+  background: var(--surface-raised);
   border-radius: 7px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
   transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
@@ -339,7 +339,7 @@ function removeAvatar() {
   position: relative;
   z-index: 2;
   height: 32px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
   border-radius: 7px;
@@ -350,7 +350,7 @@ function removeAvatar() {
 }
 
 .dialog-segmented-tabs button.active {
-  color: #0f172a;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -397,7 +397,7 @@ function removeAvatar() {
   overflow-y: scroll;
   padding-right: 4px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(15, 23, 42, 0.15) transparent;
+  scrollbar-color: var(--scrollbar) transparent;
 }
 
 .provider-scroll-wrap::-webkit-scrollbar {
@@ -409,13 +409,13 @@ function removeAvatar() {
 }
 
 .provider-scroll-wrap::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.12);
+  background: var(--scrollbar);
   border-radius: 999px;
   transition: background 0.15s ease;
 }
 
 .provider-scroll-wrap::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 23, 42, 0.25);
+  background: var(--scrollbar-hover);
 }
 
 /* 内置供应商网格排版 */
@@ -434,11 +434,11 @@ function removeAvatar() {
   gap: 9px;
   height: 48px;
   padding: 0 12px;
-  color: #334155;
+  color: var(--text-secondary);
   font-size: 13px;
   text-align: left;
   border-radius: 9px;
-  background: #f8fafc;
+  background: var(--surface-app);
   cursor: pointer;
   transition: background 0.14s ease, transform 0.12s ease, box-shadow 0.14s ease;
 }
@@ -458,21 +458,21 @@ function removeAvatar() {
 }
 
 .provider-option:hover:not(:disabled) {
-  color: #0f172a;
-  background: #f1f5f9;
+  color: var(--text-primary);
+  background: var(--surface-muted);
   transform: translateY(-1px);
 }
 
 .provider-option.selected {
-  color: #0f172a;
-  background: #f1f5f9;
-  box-shadow: inset 0 0 0 2px #0f172a;
+  color: var(--text-primary);
+  background: var(--surface-muted);
+  box-shadow: inset 0 0 0 2px var(--text-primary);
 }
 
 .provider-option.configured {
-  color: #94a3b8;
+  color: var(--text-subtle);
   cursor: default;
-  background: #f8fafc;
+  background: var(--surface-app);
   opacity: 0.65;
 }
 
@@ -480,7 +480,7 @@ function removeAvatar() {
   position: absolute;
   top: 6px;
   right: 6px;
-  color: #10b981;
+  color: var(--success-text);
 }
 
 /* 自定义供应商表单排版：完美上下垂直居中 */
@@ -494,13 +494,20 @@ function removeAvatar() {
   overflow-y: auto;
 }
 
+:global(:root[data-theme="dark"] .provider-option img) {
+  padding: 2px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.92);
+  box-sizing: border-box;
+}
+
 .custom-avatar-field {
   display: grid;
   gap: 7px;
 }
 
 .custom-avatar-field > .form-label-row > span:first-child {
-  color: #1e293b;
+  color: var(--text-strong);
   font-size: 13px;
   font-weight: 600;
 }
@@ -519,10 +526,10 @@ function removeAvatar() {
   height: 42px;
   flex: 0 0 42px;
   place-items: center;
-  color: #94a3b8;
-  border: 1px solid #e2e8f0;
+  color: var(--text-subtle);
+  border: 1px solid var(--border);
   border-radius: 9px;
-  background: #f8fafc;
+  background: var(--surface-app);
   object-fit: cover;
 }
 
@@ -532,7 +539,7 @@ function removeAvatar() {
 
 .custom-avatar-picker small {
   margin-left: auto;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -550,19 +557,19 @@ function removeAvatar() {
 }
 
 .form-label-row label {
-  color: #1e293b;
+  color: var(--text-strong);
   font-size: 13px;
   font-weight: 600;
 }
 
 .form-required {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 400;
 }
 
 .form-optional {
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 11.5px;
   font-weight: 400;
 }
@@ -570,22 +577,22 @@ function removeAvatar() {
 .custom-provider-form input {
   height: 42px;
   padding: 0 13px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 13px;
   border: 0;
   border-radius: 9px;
   outline: 0;
-  background: #f1f5f9;
+  background: var(--surface-muted);
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .custom-provider-form input::placeholder {
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 12.5px;
 }
 
 .custom-provider-form input:focus {
-  background: #ffffff;
+  background: var(--surface-raised);
   box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2), 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
@@ -599,7 +606,7 @@ function removeAvatar() {
 
 .dialog-error {
   margin: 0;
-  color: #ef4444;
+  color: var(--danger-text);
   font-size: 12px;
   font-weight: 500;
 }

@@ -75,9 +75,12 @@ Current settings file example:
 ```json
 {
   "schemaVersion": 1,
-  "localePreference": "system"
+  "localePreference": "system",
+  "themePreference": "system"
 }
 ```
+
+`themePreference` accepts `system`, `light`, or `dark`. The theme is selected on the Settings page; `system` follows operating-system appearance changes in real time. Changes are persisted through the settings Store write queue.
 
 Settings startup flow:
 
@@ -85,7 +88,7 @@ Settings startup flow:
 2. Rust reads and validates `settings.json`, creating defaults on the first run.
 3. For upgraded users, the old `key-switch.locale` value is migrated only when the settings file is first created.
 4. The legacy `localStorage` key is removed after a successful migration.
-5. Vue mounts only after settings are returned, preventing a locale flash.
+5. The language and theme are applied before Vue mounts, preventing a startup flash.
 
 Settings writes are protected as follows:
 

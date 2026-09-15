@@ -34,6 +34,6 @@ const { t } = useI18n();
 <style scoped>
 .confirm-fade-enter-active,.confirm-fade-leave-active { transition: opacity .15s ease; }
 .confirm-fade-enter-from,.confirm-fade-leave-to { opacity: 0; }
-.confirm-dialog { width: 400px; max-width: calc(100vw - 32px); padding: 22px; border-radius: 16px; background: #fff; box-shadow: 0 25px 60px -15px rgba(15,23,42,.25); }
-header { display:flex; align-items:flex-start; gap:12px; } header > .app-btn { margin-left:auto; } h2,p { margin:0; } h2 { font-size:17px; color:#0f172a; } p { margin-top:5px; color:#64748b; font-size:13px; line-height:1.6; }.confirm-dialog__icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; color:#dc2626; border-radius:10px; background:#fef2f2; } footer { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
+.confirm-dialog { width: 400px; max-width: calc(100vw - 32px); padding: 22px; border-radius: 16px; background: var(--surface-raised); box-shadow: 0 25px 60px -15px rgba(15,23,42,.25); }
+header { display:flex; align-items:flex-start; gap:12px; } header > .app-btn { margin-left:auto; } h2,p { margin:0; } h2 { font-size:17px; color:var(--text-primary); } p { margin-top:5px; color:var(--text-muted); font-size:13px; line-height:1.6; }.confirm-dialog__icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; color:var(--danger-text); border-radius:10px; background:var(--danger-surface); } footer { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
 </style>

@@ -41,17 +41,17 @@ onMounted(async () => {
 
 <style scoped>
 .app-footer p {
-  color: #94a3b8;
+  color: var(--text-subtle);
 }
 
 .update-status {
   justify-self: end;
-  color: #64748b !important;
+  color: var(--text-muted) !important;
   font-weight: 500;
 }
 
 .update-status--warning {
-  color: #d97706 !important;
+  color: var(--warning-text) !important;
 }
 
 .update-status--downloading svg {

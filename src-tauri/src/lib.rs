@@ -139,6 +139,7 @@ fn command_error_code(message: &str) -> &'static str {
     } else if message.starts_with("设置文件格式错误")
         || message.starts_with("设置文件版本不受支持")
         || message.starts_with("语言设置无效")
+        || message.starts_with("主题设置无效")
     {
         "SETTINGS_INVALID"
     } else if message.starts_with("无法序列化设置文件")
@@ -219,6 +220,7 @@ struct AppData {
 struct AppSettings {
     schema_version: u32,
     locale_preference: String,
+    theme_preference: String,
 }
 
 impl Default for AppSettings {
@@ -226,6 +228,7 @@ impl Default for AppSettings {
         Self {
             schema_version: SETTINGS_SCHEMA_VERSION,
             locale_preference: "system".into(),
+            theme_preference: "system".into(),
         }
     }
 }
@@ -477,12 +480,19 @@ fn valid_locale_preference(value: &str) -> bool {
     matches!(value, "system" | "zh-CN" | "zh-TW" | "en-US" | "ja-JP")
 }
 
+fn valid_theme_preference(value: &str) -> bool {
+    matches!(value, "system" | "light" | "dark")
+}
+
 fn validate_settings(settings: &AppSettings) -> Result<(), String> {
     if settings.schema_version != SETTINGS_SCHEMA_VERSION {
         return Err(format!("设置文件版本不受支持：{}", settings.schema_version));
     }
     if !valid_locale_preference(&settings.locale_preference) {
         return Err("语言设置无效".into());
+    }
+    if !valid_theme_preference(&settings.theme_preference) {
+        return Err("主题设置无效".into());
     }
     Ok(())
 }
@@ -1039,8 +1049,8 @@ mod tests {
     use super::{
         build_validation_request, classify_validation_status, command_error_code,
         load_settings_from_file, normalize_validation_config, parse_safe_validation_url,
-        save_settings_to_file, valid_header_name, valid_locale_preference, AppData, AppSettings,
-        KeyValidationSpec, SemVersion, ValidationConfig, ValidationOutcome,
+        save_settings_to_file, valid_header_name, valid_locale_preference, valid_theme_preference,
+        AppData, AppSettings, KeyValidationSpec, SemVersion, ValidationConfig, ValidationOutcome,
         SETTINGS_BACKUP_FILE_NAME, SETTINGS_FILE_NAME, SETTINGS_SCHEMA_VERSION,
         SETTINGS_TEMP_FILE_NAME,
     };
@@ -1177,6 +1187,7 @@ mod tests {
             command_error_code("无法保存设置文件：disk full"),
             "SETTINGS_SAVE_FAILED"
         );
+        assert_eq!(command_error_code("主题设置无效"), "SETTINGS_INVALID");
         assert_eq!(
             command_error_code("供应商检测配置无效：检测地址必须使用 HTTPS"),
             "PROVIDER_VALIDATION_INVALID"
@@ -1198,6 +1209,15 @@ mod tests {
             serde_json::from_str(r#"{"localePreference":"en-US"}"#).unwrap();
         assert_eq!(settings.schema_version, SETTINGS_SCHEMA_VERSION);
         assert_eq!(settings.locale_preference, "en-US");
+        assert_eq!(settings.theme_preference, "system");
+    }
+
+    #[test]
+    fn validates_supported_theme_preferences() {
+        for theme in ["system", "light", "dark"] {
+            assert!(valid_theme_preference(theme));
+        }
+        assert!(!valid_theme_preference("sepia"));
     }
 
     #[test]
@@ -1212,16 +1232,17 @@ mod tests {
         let initial = AppSettings {
             schema_version: SETTINGS_SCHEMA_VERSION,
             locale_preference: "en-US".into(),
+            theme_preference: "light".into(),
         };
         save_settings_to_file(&file, &initial).unwrap();
-        assert_eq!(
-            load_settings_from_file(&file).unwrap().locale_preference,
-            "en-US"
-        );
+        let loaded_initial = load_settings_from_file(&file).unwrap();
+        assert_eq!(loaded_initial.locale_preference, "en-US");
+        assert_eq!(loaded_initial.theme_preference, "light");
 
         let replacement = AppSettings {
             schema_version: SETTINGS_SCHEMA_VERSION,
             locale_preference: "ja-JP".into(),
+            theme_preference: "dark".into(),
         };
         fs::write(
             directory.join(SETTINGS_TEMP_FILE_NAME),
@@ -1229,10 +1250,9 @@ mod tests {
         )
         .unwrap();
         fs::rename(&file, directory.join(SETTINGS_BACKUP_FILE_NAME)).unwrap();
-        assert_eq!(
-            load_settings_from_file(&file).unwrap().locale_preference,
-            "ja-JP"
-        );
+        let loaded_replacement = load_settings_from_file(&file).unwrap();
+        assert_eq!(loaded_replacement.locale_preference, "ja-JP");
+        assert_eq!(loaded_replacement.theme_preference, "dark");
 
         fs::remove_dir_all(directory).unwrap();
     }

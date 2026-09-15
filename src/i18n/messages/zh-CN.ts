@@ -114,7 +114,7 @@ const zhCN = {
   },
   settings: {
     title: "设置",
-    description: "语言、本地数据与应用信息。",
+    description: "外观、语言、本地数据与应用信息。",
     language: {
       title: "语言",
       description: "选择界面显示语言。跟随系统为默认设置。",
@@ -124,6 +124,14 @@ const zhCN = {
       traditionalChinese: "繁體中文",
       english: "English",
       japanese: "日本語",
+    },
+    appearance: {
+      title: "外观",
+      description: "选择界面的颜色主题。跟随系统会自动响应系统外观变化。",
+      label: "颜色主题",
+      system: "跟随系统",
+      light: "浅色",
+      dark: "深色",
     },
     storage: {
       title: "本地存储",

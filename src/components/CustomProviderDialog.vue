@@ -182,7 +182,7 @@ function submit() {
   padding: 24px;
   box-sizing: border-box;
   border-radius: 16px;
-  background: #fff;
+  background: var(--surface-raised);
   box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);
 }
 
@@ -193,28 +193,28 @@ function submit() {
   gap: 16px;
 }
 
-.custom-provider-dialog h2 { margin: 0; color: #0f172a; font-size: 18px; }
-.custom-provider-dialog header p { margin: 4px 0 0; color: #64748b; font-size: 12.5px; }
+.custom-provider-dialog h2 { margin: 0; color: var(--text-primary); font-size: 18px; }
+.custom-provider-dialog header p { margin: 4px 0 0; color: var(--text-muted); font-size: 12.5px; }
 
 .custom-provider-dialog form { display: grid; gap: 17px; margin-top: 22px; }
 .custom-provider-dialog label { display: grid; gap: 7px; }
-.field-label { color: #1e293b; font-size: 13px; font-weight: 600; }
+.field-label { color: var(--text-strong); font-size: 13px; font-weight: 600; }
 
 .custom-provider-dialog input:not([type="file"]) {
   height: 42px;
   padding: 0 13px;
-  color: #0f172a;
+  color: var(--text-primary);
   font: inherit;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 9px;
   outline: 0;
-  background: #f8fafc;
+  background: var(--surface-app);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .custom-provider-dialog input:not([type="file"]):focus {
   border-color: #38bdf8;
-  background: #fff;
+  background: var(--surface-raised);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
 }
 
@@ -227,15 +227,15 @@ function submit() {
   height: 52px;
   flex: 0 0 52px;
   place-items: center;
-  color: #94a3b8;
-  border: 1px solid #e2e8f0;
+  color: var(--text-subtle);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #f8fafc;
+  background: var(--surface-app);
   object-fit: cover;
 }
 .avatar-picker input { display: none; }
 .avatar-actions { display: flex; align-items: center; gap: 4px; }
-.avatar-field small { color: #94a3b8; font-size: 11.5px; }
-.form-error { margin: -6px 0 0; color: #dc2626; font-size: 12px; }
+.avatar-field small { color: var(--text-subtle); font-size: 11.5px; }
+.form-error { margin: -6px 0 0; color: var(--danger-text); font-size: 12px; }
 .custom-provider-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px; }
 </style>

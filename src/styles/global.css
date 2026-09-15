@@ -1,7 +1,42 @@
 :root {
+  --surface-app: #f8fafc;
+  --surface-sidebar: transparent;
+  --surface-card: transparent;
+  --surface-raised: #ffffff;
+  --surface-muted: #f1f5f9;
+  --surface-control: rgba(255, 255, 255, 0.84);
+  --surface-popover: rgba(255, 255, 255, 0.97);
+  --text-primary: #0f172a;
+  --text-strong: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --interactive-hover: rgba(15, 23, 42, 0.05);
+  --interactive-active: rgba(15, 23, 42, 0.08);
+  --nav-active: rgba(15, 23, 42, 0.07);
+  --nav-active-text: #0f172a;
+  --card-shadow: none;
+  --control-inset: rgba(255, 255, 255, 0.75);
+  --control-inset-strong: rgba(255, 255, 255, 0.9);
+  --scrollbar: rgba(15, 23, 42, 0.12);
+  --scrollbar-hover: rgba(15, 23, 42, 0.28);
+  --info-surface: #eff6ff;
+  --indigo-surface: #eef2ff;
+  --cyan-surface: #e0f2fe;
+  --success-surface: #ecfdf5;
+  --teal-surface: #f0fdfa;
+  --danger-surface: #fef2f2;
+  --warning-surface: #fffbeb;
+  --accent-text: #4f46e5;
+  --blue-text: #2563eb;
+  --success-text: #059669;
+  --danger-text: #dc2626;
+  --warning-text: #b45309;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Microsoft YaHei UI", sans-serif;
-  color: #0f172a;
-  background: #f8fafc;
+  color: var(--text-primary);
+  background: var(--surface-app);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -18,7 +53,45 @@ body {
   margin: 0;
   overflow: hidden;
   font-size: 14px;
-  background: #f8fafc;
+  background: var(--surface-app);
+}
+
+:root[data-theme="dark"] {
+  --surface-app: #0b1220;
+  --surface-sidebar: rgba(8, 14, 27, 0.52);
+  --surface-card: rgba(17, 27, 45, 0.78);
+  --surface-raised: #172237;
+  --surface-muted: #1a2639;
+  --surface-control: rgba(17, 28, 47, 0.94);
+  --surface-popover: rgba(20, 31, 50, 0.98);
+  --text-primary: #e7edf6;
+  --text-strong: #dce5f2;
+  --text-secondary: #b5c1d1;
+  --text-muted: #899ab1;
+  --text-subtle: #687a93;
+  --border: #223149;
+  --border-strong: #344660;
+  --interactive-hover: rgba(148, 163, 184, 0.08);
+  --interactive-active: rgba(148, 163, 184, 0.12);
+  --nav-active: rgba(99, 102, 241, 0.16);
+  --nav-active-text: #c7d2fe;
+  --card-shadow: 0 8px 24px rgba(2, 6, 23, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.018);
+  --control-inset: rgba(255, 255, 255, 0.035);
+  --control-inset-strong: rgba(255, 255, 255, 0.07);
+  --scrollbar: rgba(203, 213, 225, 0.18);
+  --scrollbar-hover: rgba(203, 213, 225, 0.34);
+  --info-surface: rgba(59, 130, 246, 0.16);
+  --indigo-surface: rgba(99, 102, 241, 0.16);
+  --cyan-surface: rgba(14, 165, 233, 0.16);
+  --success-surface: rgba(16, 185, 129, 0.15);
+  --teal-surface: rgba(20, 184, 166, 0.15);
+  --danger-surface: rgba(239, 68, 68, 0.15);
+  --warning-surface: rgba(245, 158, 11, 0.15);
+  --accent-text: #a5b4fc;
+  --blue-text: #60a5fa;
+  --success-text: #34d399;
+  --danger-text: #f87171;
+  --warning-text: #fbbf24;
 }
 
 .visually-hidden {
@@ -53,7 +126,14 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   grid-template-rows: minmax(0, 1fr) 46px;
   height: 100vh;
   min-height: 520px;
-  background: #f8fafc;
+  background: var(--surface-app);
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+
+:root[data-theme="dark"] .app-shell {
+  background:
+    radial-gradient(ellipse at 78% -12%, rgba(59, 130, 246, 0.07), transparent 42%),
+    var(--surface-app);
 }
 
 .app-body {
@@ -61,7 +141,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   /* 默认窗口较窄，侧栏只保留导航所需宽度，把空间留给 Key 表格。 */
   grid-template-columns: 172px minmax(0, 1fr);
   min-height: 0;
-  background: #f8fafc;
+  background: transparent;
 }
 
 /* 页面主内容区域：使用 scrollbar-gutter: stable 彻底锁定排版宽度，杜绝展开时滚动条挤压跳动 */
@@ -71,8 +151,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   overflow-x: hidden;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: rgba(15, 23, 42, 0.15) transparent;
-  background: #f8fafc;
+  scrollbar-color: var(--scrollbar) transparent;
+  background: transparent;
 }
 
 .page-content::-webkit-scrollbar {
@@ -84,20 +164,20 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .page-content::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.12);
+  background: var(--scrollbar);
   border-radius: 999px;
   transition: background 0.15s ease;
 }
 
 .page-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 23, 42, 0.28);
+  background: var(--scrollbar-hover);
 }
 
 .dashboard-view, .providers-view, .settings-view {
   max-width: 980px;
   margin: 0 auto;
   padding: 24px 28px 36px;
-  background: #f8fafc;
+  background: transparent;
 }
 
 /* 顶部工具栏 */
@@ -122,7 +202,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   top: 0;
   margin-bottom: 8px;
   padding: 24px 0 14px;
-  background: #f8fafc;
+  background: var(--surface-app);
 }
 
 .view-toolbar h1 {
@@ -130,12 +210,12 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.025em;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .view-description {
   margin: 3px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -152,17 +232,17 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   width: 250px;
   gap: 8px;
   padding: 0 12px;
-  color: #94a3b8;
-  border: 1px solid #e2e8f0;
+  color: var(--text-subtle);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: transparent;
+  background: var(--surface-control);
   transition: all 0.16s ease;
 }
 
 .search-field input {
   width: 100%;
   height: 36px;
-  color: #0f172a;
+  color: var(--text-primary);
   border: 0;
   outline: 0;
   background: transparent;
@@ -170,7 +250,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .search-field input::placeholder {
-  color: #94a3b8;
+  color: var(--text-subtle);
 }
 
 .search-field:focus-within {
@@ -192,15 +272,20 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   gap: 14px;
   min-height: 80px;
   padding: 14px 18px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: transparent;
-  transition: border-color 0.16s ease, transform 0.16s ease;
+  background: var(--surface-card);
+  box-shadow: var(--card-shadow);
+  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .stat-card:hover {
-  border-color: #cbd5e1;
+  border-color: var(--border-strong);
   transform: translateY(-1px);
+}
+
+:root[data-theme="dark"] .stat-card:hover {
+  box-shadow: 0 10px 28px rgba(2, 6, 23, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
 .stat-icon {
@@ -213,23 +298,23 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .stat-icon--blue {
-  color: #2563eb;
-  background: #eff6ff;
+  color: var(--blue-text);
+  background: var(--info-surface);
 }
 
 .stat-icon--green {
-  color: #059669;
-  background: #ecfdf5;
+  color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .stat-icon--emerald {
-  color: #0d9488;
-  background: #f0fdfa;
+  color: var(--success-text);
+  background: var(--teal-surface);
 }
 
 .stat-card p {
   margin: 0 0 3px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 500;
 }
@@ -237,7 +322,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .stat-card strong {
   font-size: 22px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -250,21 +335,22 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 /* 常规卡片：细致浅灰边框 + 大圆角 14px + 与软件背景色完全一致 */
 .provider-panel {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: transparent;
+  background: var(--surface-card);
+  box-shadow: var(--card-shadow);
   transition: border-color 0.24s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 
 .provider-panel:hover {
-  border-color: #cbd5e1;
+  border-color: var(--border-strong);
 }
 
 /* 激活 / 展开态卡片（天蓝高光轮廓边框 + 内部统一软件背景色） */
 .provider-panel--active {
   border-color: #38bdf8;
-  background: transparent;
+  background: var(--surface-card);
 }
 
 .provider-summary {
@@ -290,14 +376,14 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #cbd5e1;
+  color: var(--border-strong);
   cursor: grab;
   padding: 4px 2px;
   transition: color 0.15s ease;
 }
 
 .drag-handle:hover {
-  color: #94a3b8;
+  color: var(--text-subtle);
 }
 
 .provider-text-meta {
@@ -316,7 +402,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .provider-name-text {
   font-size: 14.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 
@@ -330,13 +416,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .provider-tag--builtin {
-  background: #e0f2fe;
-  color: #0284c7;
+  background: var(--cyan-surface);
+  color: var(--blue-text);
 }
 
 .provider-tag--custom {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--surface-muted);
+  color: var(--text-muted);
 }
 
 .provider-endpoint-link {
@@ -352,7 +438,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .provider-endpoint-link:hover {
-  color: #1d4ed8;
+  color: var(--blue-text);
   text-decoration: underline;
 }
 
@@ -375,7 +461,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 11px;
 }
 
@@ -385,7 +471,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   justify-content: center;
   width: 34px;
   height: 34px;
-  color: #94a3b8;
+  color: var(--text-subtle);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -394,8 +480,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .refresh-btn:hover:not(:disabled) {
-  color: #0f172a;
-  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-primary);
+  background: var(--interactive-hover);
 }
 
 .refresh-btn:disabled {
@@ -405,17 +491,17 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .provider-quota-summary {
   font-size: 11.5px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .quota-highlight {
   font-weight: 700;
-  color: #059669;
+  color: var(--success-text);
   font-size: 12px;
 }
 
 .quota-available {
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 11px;
 }
 
@@ -427,13 +513,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 /* 供应商展开后的表格容器（与软件背景完全一致） */
 .key-table-wrap {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
   background: transparent;
   padding: 10px 18px 14px;
 }
 
 .provider-panel--active .key-table-wrap {
-  border-top-color: #e2e8f0;
+  border-top-color: var(--border);
   background: transparent;
 }
 
@@ -450,16 +536,16 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .key-table th {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 600;
   background: transparent;
 }
 
 .key-table td {
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 12.5px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
 }
 
 .key-table tbody tr {
@@ -467,7 +553,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .key-table tbody tr:hover {
-  background: rgba(15, 23, 42, 0.03);
+  background: var(--interactive-hover);
 }
 
 .key-table th:nth-child(1) { width: 21%; }
@@ -494,8 +580,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11.5px;
   font-weight: 600;
-  color: #0f172a;
-  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-primary);
+  background: var(--interactive-hover);
   padding: 2px 7px;
   border-radius: 5px;
   letter-spacing: 0.03em;
@@ -511,7 +597,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   gap: 5px;
   margin: 0;
   padding: 8px 10px 0;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 11px;
 }
 
@@ -534,33 +620,33 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .status-badge--valid {
-  color: #059669;
-  background: #ecfdf5;
+  color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .status-badge--untested {
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--text-muted);
+  background: var(--surface-muted);
 }
 
 .status-badge--unsupported {
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--text-muted);
+  background: var(--surface-muted);
 }
 
 .status-badge--invalid {
-  color: #dc2626;
-  background: #fef2f2;
+  color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .status-badge--error {
-  color: #d97706;
-  background: #fffbeb;
+  color: var(--warning-text);
+  background: var(--warning-surface);
 }
 
 .status-badge--checking {
-  color: #2563eb;
-  background: #eff6ff;
+  color: var(--blue-text);
+  background: var(--info-surface);
 }
 
 .key-status-detail {
@@ -570,7 +656,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .key-status-detail time {
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 10px;
   white-space: nowrap;
 }
@@ -581,13 +667,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   justify-items: center;
   gap: 10px;
   padding: 64px 16px;
-  color: #94a3b8;
+  color: var(--text-subtle);
   text-align: center;
 }
 
 .empty-state h2 {
   margin: 4px 0 0;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
 }
@@ -632,14 +718,15 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .provider-management-card, .settings-card {
   padding: 16px 18px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: transparent;
-  transition: border-color 0.16s ease, transform 0.16s ease;
+  background: var(--surface-card);
+  box-shadow: var(--card-shadow);
+  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .provider-management-card:hover, .settings-card:hover {
-  border-color: #cbd5e1;
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
@@ -649,7 +736,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .provider-management-card .provider-name p {
   margin: 3px 0 0;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 12px;
 }
 
@@ -659,9 +746,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   justify-content: space-between;
   margin-top: 14px;
   padding-top: 10px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
 }
 
 .provider-card-actions {
@@ -685,12 +772,23 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   min-height: 92px;
 }
 
-.settings-card--language {
+:root[data-theme="dark"] .provider-management-card:hover,
+:root[data-theme="dark"] .settings-card:hover {
+  box-shadow: 0 10px 28px rgba(2, 6, 23, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+:root[data-theme="dark"] .toast {
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.settings-card--select {
   position: relative;
   z-index: 2;
 }
 
-.settings-card--language:focus-within {
+.settings-card--select:focus-within {
   z-index: 20;
 }
 
@@ -706,19 +804,19 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   height: 40px;
   margin-top: 0;
   padding: 11px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .settings-heading h2 {
   margin: 0;
   font-size: 14.5px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .settings-heading p {
   margin: 4px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -732,9 +830,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: block;
   max-width: 320px;
   overflow: hidden;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11.5px;
-  background: rgba(15, 23, 42, 0.05);
+  background: var(--interactive-hover);
   padding: 3px 8px;
   border-radius: 6px;
   text-overflow: ellipsis;
@@ -772,13 +870,17 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   height: 20px;
 }
 
+:root[data-theme="dark"] .button-github-icon {
+  filter: invert(1);
+}
+
 /* 底部状态条 */
 .app-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 11.5px;
   background: transparent;
   border: none;
@@ -792,13 +894,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .app-footer strong {
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .app-footer button {
   padding-left: 10px;
-  color: #0f172a;
+  color: var(--text-primary);
   cursor: pointer;
   background: transparent;
   font-size: 11.5px;

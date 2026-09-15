@@ -439,7 +439,7 @@ function applyCollapsedAccordionStyles(accordion: HTMLElement) {
 function applyExpandedAccordionStyles(accordion: HTMLElement) {
   accordion.style.paddingTop = "10px";
   accordion.style.paddingBottom = "14px";
-  accordion.style.borderTopColor = "#e2e8f0";
+  accordion.style.borderTopColor = "var(--border)";
 }
 
 function resetAccordionStyles(element: Element) {
@@ -873,7 +873,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo: string
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #cbd5e1;
+  color: var(--border-strong);
   cursor: grab;
   padding: 6px 3px;
   border-radius: 4px;
@@ -882,8 +882,8 @@ async function addCustomProvider(name: string, platformUrl: string, logo: string
 }
 
 .drag-handle:hover {
-  color: #64748b;
-  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-muted);
+  background: var(--interactive-hover);
 }
 
 .drag-handle:active {

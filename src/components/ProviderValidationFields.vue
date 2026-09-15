@@ -102,14 +102,14 @@ function updateHeaderName(value: string) {
 </template>
 
 <style scoped>
-.validation-fields { display: grid; gap: 10px; margin: 2px 0 0; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; }
-.validation-fields legend { display: flex; align-items: center; gap: 6px; padding: 0 5px; color: #1e293b; font-size: 12.5px; font-weight: 600; }
-.validation-fields label { display: grid; gap: 6px; color: #334155; font-size: 12px; font-weight: 600; }
-.validation-mode-field { display: grid; gap: 6px; color: #334155; font-size: 12px; font-weight: 600; }
-.validation-fields input { width: 100%; height: 38px; padding: 0 11px; color: #0f172a; font: inherit; font-weight: 400; border: 1px solid #e2e8f0; border-radius: 8px; outline: 0; background: #f8fafc; box-sizing: border-box; }
-.validation-fields input:focus { border-color: #38bdf8; background: #fff; box-shadow: 0 0 0 3px rgba(56, 189, 248, .14); }
+.validation-fields { display: grid; gap: 10px; margin: 2px 0 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
+.validation-fields legend { display: flex; align-items: center; gap: 6px; padding: 0 5px; color: var(--text-strong); font-size: 12.5px; font-weight: 600; }
+.validation-fields label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.validation-mode-field { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.validation-fields input { width: 100%; height: 38px; padding: 0 11px; color: var(--text-primary); font: inherit; font-weight: 400; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: var(--surface-app); box-sizing: border-box; }
+.validation-fields input:focus { border-color: #38bdf8; background: var(--surface-raised); box-shadow: 0 0 0 3px rgba(56, 189, 248, .14); }
 .validation-hint,
 .validation-warning { margin: 0; font-size: 11.5px; line-height: 1.45; }
-.validation-hint { color: #64748b; }
-.validation-warning { color: #b45309; }
+.validation-hint { color: var(--text-muted); }
+.validation-warning { color: var(--warning-text); }
 </style>

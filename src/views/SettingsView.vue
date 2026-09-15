@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
-import { FileClock, FolderOpen, Languages, RefreshCw, Trash2 } from "@lucide/vue";
+import { FileClock, FolderOpen, Languages, Palette, RefreshCw, Trash2 } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import githubIcon from "../assets/icons8-github.svg";
@@ -14,7 +14,7 @@ import UpdateAvailableDialog from "../components/UpdateAvailableDialog.vue";
 import { checkForAppUpdates, clearLogs, getAppInfo, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
 import type { UpdateInfo } from "../api/app";
 import { useUpdateStore } from "../stores/update";
-import { useSettingsStore } from "../stores/settings";
+import { isThemePreference, useSettingsStore } from "../stores/settings";
 import { isLocalePreference } from "../i18n/locale";
 import { translateAppError } from "../i18n/errors";
 
@@ -28,7 +28,7 @@ const availableUpdate = ref<UpdateInfo | null>(null);
 const updateStore = useUpdateStore();
 const settingsStore = useSettingsStore();
 const { installing: installingUpdate } = storeToRefs(updateStore);
-const { localePreference } = storeToRefs(settingsStore);
+const { localePreference, themePreference } = storeToRefs(settingsStore);
 const languageOptions = computed<AppSelectOption[]>(() => [
   { value: "system", label: t("settings.language.system") },
   { value: "zh-CN", label: t("settings.language.simplifiedChinese") },
@@ -36,11 +36,25 @@ const languageOptions = computed<AppSelectOption[]>(() => [
   { value: "en-US", label: t("settings.language.english") },
   { value: "ja-JP", label: t("settings.language.japanese") },
 ]);
+const themeOptions = computed<AppSelectOption[]>(() => [
+  { value: "system", label: t("settings.appearance.system") },
+  { value: "light", label: t("settings.appearance.light") },
+  { value: "dark", label: t("settings.appearance.dark") },
+]);
 
 async function changeLocalePreference(value: string): Promise<void> {
   if (!isLocalePreference(value)) return;
   try {
     await settingsStore.updateLocalePreference(value);
+  } catch (error) {
+    notify(translateAppError(error));
+  }
+}
+
+async function changeThemePreference(value: string): Promise<void> {
+  if (!isThemePreference(value)) return;
+  try {
+    await settingsStore.updateThemePreference(value);
   } catch (error) {
     notify(translateAppError(error));
   }
@@ -132,7 +146,7 @@ onMounted(async () => {
       </div>
     </div>
     <div class="settings-stack">
-      <article class="settings-card settings-card--language">
+      <article class="settings-card settings-card--select">
         <div class="settings-heading">
           <Languages :size="18" :stroke-width="1.8" />
           <div>
@@ -146,6 +160,24 @@ onMounted(async () => {
             :options="languageOptions"
             :label="t('settings.language.label')"
             @update:model-value="changeLocalePreference"
+          />
+        </div>
+      </article>
+
+      <article class="settings-card settings-card--select">
+        <div class="settings-heading">
+          <Palette :size="18" :stroke-width="1.8" />
+          <div>
+            <h2>{{ t("settings.appearance.title") }}</h2>
+            <p>{{ t("settings.appearance.description") }}</p>
+          </div>
+        </div>
+        <div class="settings-value">
+          <AppSelect
+            :model-value="themePreference"
+            :options="themeOptions"
+            :label="t('settings.appearance.label')"
+            @update:model-value="changeThemePreference"
           />
         </div>
       </article>

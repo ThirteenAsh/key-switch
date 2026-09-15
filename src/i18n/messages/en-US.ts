@@ -20,8 +20,9 @@ const enUS = {
     notices: { addFailed: "Could not add provider: the name already exists", added: "Custom provider added and shown on the dashboard", saveFailed: "Could not save: the provider name exists or the configuration is invalid", saved: "Provider configuration saved and synced to the dashboard", deleted: "Deleted provider “{name}”", deleteFailed: "Could not delete provider" },
   },
   settings: {
-    title: "Settings", description: "Language, local data, and application information.",
+    title: "Settings", description: "Appearance, language, local data, and application information.",
     language: { title: "Language", description: "Choose the interface language. System default is selected initially.", label: "Interface language", system: "System default", simplifiedChinese: "简体中文", traditionalChinese: "繁體中文", english: "English", japanese: "日本語" },
+    appearance: { title: "Appearance", description: "Choose the interface color theme. System default responds automatically to appearance changes.", label: "Color theme", system: "System default", light: "Light", dark: "Dark" },
     storage: { title: "Local storage", description: "Provider and key metadata is stored here, and application settings are written to settings.json.", loading: "Reading the local data directory", openFailed: "Could not open the local storage location" },
     logs: { title: "Application logs", description: "Local operations and key-check results", loading: "Reading the log directory", clearLogs: "Clear logs", openDirectory: "Open folder", cleared: "Logs cleared", clearFailed: "Could not clear logs", openFailed: "Could not open the log directory", clearDialogTitle: "Clear application logs", clearDialogMessage: "Clear all local application logs? This action cannot be undone." },
     version: { current: "Current version {version}", checkUpdates: "Check for updates", latest: "You are using the latest version", checkFailed: "Could not check for updates. Try again later.", githubFailed: "Could not open the GitHub repository", releaseFailed: "Could not open the release download page" },

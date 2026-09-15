@@ -24,6 +24,7 @@ export const SETTINGS_SCHEMA_VERSION = 1;
 export interface AppSettings {
   schemaVersion: number;
   localePreference: string;
+  themePreference: "system" | "light" | "dark";
 }
 
 export function isDesktopApp(): boolean {

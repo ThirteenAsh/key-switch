@@ -75,9 +75,12 @@ cargo test --locked
 ```json
 {
   "schemaVersion": 1,
-  "localePreference": "system"
+  "localePreference": "system",
+  "themePreference": "system"
 }
 ```
+
+`themePreference` 支援 `system`、`light` 和 `dark`。主題在設定頁面選擇；`system` 會即時跟隨作業系統的淺色或深色外觀，變更透過設定 Store 的寫入佇列持久化。
 
 設定啟動流程：
 
@@ -85,7 +88,7 @@ cargo test --locked
 2. Rust 讀取並驗證 `settings.json`；首次執行時建立預設檔案。
 3. 升級使用者如果仍有舊的 `key-switch.locale`，只在首次建立設定檔時遷移。
 4. 成功遷移後刪除舊 `localStorage` 鍵。
-5. 設定回傳前端後才掛載介面，避免語言閃切。
+5. 設定回傳前端後先套用語言和主題，再掛載介面，避免啟動時閃切。
 
 設定寫入包含以下保護：
 

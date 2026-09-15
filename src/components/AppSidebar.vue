@@ -2,7 +2,7 @@
 import {
   LayoutGrid,
   Cpu,
-  SlidersHorizontal
+  SlidersHorizontal,
 } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 
@@ -13,6 +13,7 @@ const navigation = [
   { labelKey: "navigation.providers", to: "/providers", icon: Cpu },
   { labelKey: "navigation.settings", to: "/settings", icon: SlidersHorizontal },
 ];
+
 </script>
 
 <template>
@@ -25,7 +26,7 @@ const navigation = [
           :to="item.to"
           class="nav-item"
         >
-          <component :is="item.icon" :size="17" :stroke-width="1.9" class="nav-icon" />
+          <component :is="item.icon" :size="19" :stroke-width="1.9" class="nav-icon" />
           <span>{{ t(item.labelKey) }}</span>
         </RouterLink>
       </nav>
@@ -39,7 +40,7 @@ const navigation = [
   flex-direction: column;
   justify-content: space-between;
   padding: 24px 10px 18px;
-  background: transparent;
+  background: var(--surface-sidebar);
   border: none;
   box-shadow: none;
 }
@@ -61,10 +62,10 @@ const navigation = [
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   height: 38px;
   padding: 0 12px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13.5px;
   font-weight: 500;
   text-decoration: none;
@@ -82,8 +83,8 @@ const navigation = [
 }
 
 .nav-item:hover {
-  color: #0f172a;
-  background: rgba(15, 23, 42, 0.04);
+  color: var(--text-primary);
+  background: var(--interactive-hover);
 }
 
 .nav-item:hover .nav-icon {
@@ -95,13 +96,13 @@ const navigation = [
 }
 
 .nav-item.router-link-active {
-  color: #0f172a;
-  background: rgba(15, 23, 42, 0.07);
+  color: var(--nav-active-text);
+  background: var(--nav-active);
   font-weight: 600;
 }
 
 .nav-item.router-link-active .nav-icon {
-  color: #0f172a;
+  color: var(--nav-active-text);
 }
 
 </style>
