@@ -19,6 +19,14 @@ export interface UpdateInfo {
   releaseTag: string;
 }
 
+export type ClientLogLevel = "INFO" | "WARN" | "ERROR";
+
+export interface ClientLogInput {
+  level: ClientLogLevel;
+  event: string;
+  detail?: string;
+}
+
 export const SETTINGS_SCHEMA_VERSION = 1;
 
 export interface AppSettings {
@@ -33,14 +41,44 @@ export function isDesktopApp(): boolean {
 
 export async function getAppInfo(): Promise<AppInfo | null> {
   if (!isDesktopApp()) return null;
-  return invoke<AppInfo>("get_app_info");
+  return desktopInvoke<AppInfo>("get_app_info");
+}
+
+function errorCodeForLog(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" && /^[A-Z0-9_]{1,64}$/.test(code)) return code;
+  }
+  if (typeof error === "string") {
+    try {
+      return errorCodeForLog(JSON.parse(error));
+    } catch {
+      return "UNKNOWN";
+    }
+  }
+  if (error instanceof Error && error.name) return error.name.replace(/[^A-Za-z0-9_]/g, "_").slice(0, 64);
+  return "UNKNOWN";
+}
+
+export function writeClientLog(input: ClientLogInput): Promise<void> {
+  if (!isDesktopApp()) return Promise.resolve();
+  return invoke<void>("write_client_log", { input });
 }
 
 function desktopInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   if (!isDesktopApp()) {
     return Promise.reject({ code: "DESKTOP_REQUIRED" } satisfies AppErrorPayload);
   }
-  return invoke<T>(command, args);
+  return invoke<T>(command, args).catch((error: unknown) => {
+    if (command !== "write_client_log") {
+      void writeClientLog({
+        level: "ERROR",
+        event: "tauri_command_failed",
+        detail: `command=${command} code=${errorCodeForLog(error)}`,
+      }).catch(() => undefined);
+    }
+    throw error;
+  });
 }
 export const loadAppSettings = (legacyLocalePreference?: string) => desktopInvoke<AppSettings>(
   "load_app_settings",

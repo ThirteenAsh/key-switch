@@ -4,7 +4,7 @@ const jaJP = {
   common: { close: "閉じる", cancel: "キャンセル", save: "保存", delete: "削除", configure: "設定", open: "開く", clear: "消去", optional: "任意", required: "必須", expand: "展開", collapse: "折りたたむ", uploadImage: "画像をアップロード", replaceImage: "画像を変更", removeAvatar: "アバターを削除", providerIconAlt: "{name} のアイコン", selectedProviderAvatarAlt: "選択したプロバイダーのアバター" },
   navigation: { main: "メインナビゲーション", dashboard: "ホーム", providers: "プロバイダー", settings: "設定" },
   dashboard: {
-    title: "ダッシュボード", searchPlaceholder: "プロバイダーまたはキーのメモを検索", addConfiguration: "設定を追加", statisticsLabel: "キーの統計", providerCount: "プロバイダー数", keyCount: "キーの総数", availableKeyCount: "利用可能なキー", dragToReorder: "ドラッグして並べ替え", officialProvider: "公式", customProvider: "カスタム", noPlatformUrl: "管理 URL が設定されていません", availableSummary: "（利用可能: {count}）", refreshStatus: "ステータスを再確認", validationUnsupported: "このプロバイダーにはキー確認が設定されていません", lastChecked: "最終確認：{time}", addKey: "キーを追加",
+    title: "ダッシュボード", searchPlaceholder: "プロバイダーまたはキーのメモを検索", addConfiguration: "設定を追加", statisticsLabel: "キーの統計", providerCount: "プロバイダー数", keyCount: "キーの総数", availableKeyCount: "利用可能なキー", dragToReorder: "ドラッグして並べ替え", officialProvider: "公式", customProvider: "カスタム", noPlatformUrl: "管理 URL が設定されていません", availableSummary: "（利用可能: {count}）", refreshStatus: "ステータスを再確認", validationUnsupported: "このプロバイダーにはキー確認が設定されていません", addKey: "キーを追加",
     columns: { remark: "メモ", maskedKey: "API Key（一部非表示）", status: "ステータス", actions: "操作" },
     actions: { checkKey: "キーを確認", editKey: "キーを編集", copyKey: "キーをコピー", copied: "コピー済み", deleteKey: "キーを削除" },
     keyDisclosure: "キーの一部のみを表示します。完全なシークレットが一覧に返されることはありません。",

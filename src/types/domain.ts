@@ -20,7 +20,6 @@ export interface ApiKeySummary {
   remark: string;
   maskedValue: string;
   status: KeyStatus;
-  lastCheckedAt?: string;
   checkErrorCode?: KeyCheckErrorCode;
 }
 

@@ -117,20 +117,6 @@ function closeKeyDialog() {
   editingKey.value = null;
 }
 
-function formatLastCheckedAt(value: string): string {
-  const timestamp = Number(value);
-  if (!Number.isFinite(timestamp)) return "";
-  return new Intl.DateTimeFormat(effectiveLocale.value, {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(timestamp));
-}
-
-function lastCheckedIso(value: string): string | undefined {
-  const timestamp = Number(value);
-  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : undefined;
-}
-
 async function saveKey(payload: { remark: string; value: string }) {
   if (!keyDialogProvider.value) return;
   try {
@@ -734,14 +720,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo: string
                     <td class="masked-key">
                       <code>{{ key.maskedValue }}</code>
                     </td>
-                    <td>
-                      <div class="key-status-detail">
-                        <StatusBadge :status="key.status" :error-code="key.checkErrorCode" />
-                        <time v-if="key.lastCheckedAt" :datetime="lastCheckedIso(key.lastCheckedAt)">
-                          {{ t("dashboard.lastChecked", { time: formatLastCheckedAt(key.lastCheckedAt) }) }}
-                        </time>
-                      </div>
-                    </td>
+                    <td><StatusBadge :status="key.status" :error-code="key.checkErrorCode" /></td>
                     <td><span class="key-actions">
                       <AppButton
                         variant="ghost"

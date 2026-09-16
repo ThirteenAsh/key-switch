@@ -6,7 +6,7 @@ const enUS = {
   },
   navigation: { main: "Main navigation", dashboard: "Dashboard", providers: "Providers", settings: "Settings" },
   dashboard: {
-    title: "Dashboard", searchPlaceholder: "Search providers or key notes", addConfiguration: "Add configuration", statisticsLabel: "Key statistics", providerCount: "Providers", keyCount: "Total keys", availableKeyCount: "Available keys", dragToReorder: "Drag to reorder", officialProvider: "Official", customProvider: "Custom", noPlatformUrl: "No management URL configured", availableSummary: "({count} available)", refreshStatus: "Check status again", validationUnsupported: "Key checking is not configured for this provider", lastChecked: "Last checked: {time}", addKey: "Add key",
+    title: "Dashboard", searchPlaceholder: "Search providers or key notes", addConfiguration: "Add configuration", statisticsLabel: "Key statistics", providerCount: "Providers", keyCount: "Total keys", availableKeyCount: "Available keys", dragToReorder: "Drag to reorder", officialProvider: "Official", customProvider: "Custom", noPlatformUrl: "No management URL configured", availableSummary: "({count} available)", refreshStatus: "Check status again", validationUnsupported: "Key checking is not configured for this provider", addKey: "Add key",
     columns: { remark: "Note", maskedKey: "API Key (partially hidden)", status: "Status", actions: "Actions" },
     actions: { checkKey: "Check key", editKey: "Edit key", copyKey: "Copy key", copied: "Copied", deleteKey: "Delete key" },
     keyDisclosure: "Only part of each key is shown. Full secrets are never returned to the list.",

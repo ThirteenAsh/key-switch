@@ -109,6 +109,8 @@ When adding a setting, update all of the following:
 
 The frontend merges partial changes with `settingsStore.updateSettings()`, but every command and file write contains the complete settings object. A compatible field with a default can keep the current `schemaVersion`. Removing a field, changing its type, or changing its meaning requires a version bump and an explicit migration. Do not change only the version number: unsupported versions are intentionally rejected.
 
+Logging behavior: native business events are written to `logs/key-switch.log`, with one rotated 1 MB backup. The frontend uses a single logging command for Vue runtime errors, unhandled Promise rejections, resource errors, and failed Tauri commands. Client entries accept only allow-listed levels and event names; details have newlines removed, are truncated, and redact common credential fields. Users can open the log directory from the Settings page for troubleshooting.
+
 ## 6. Internationalization rules
 
 Supported preferences:
@@ -159,7 +161,7 @@ Development rules:
 - A check configuration stores only an HTTPS endpoint, authentication mode, and a non-sensitive header name. The full key is still read temporarily from the system credential store by Rust only.
 - Custom check URLs must not contain credentials, query parameters, or fragments. Loopback, private, link-local, reserved addresses, and hostnames resolving to them are rejected, and HTTP redirects remain disabled.
 - Check requests do not read or log response bodies. Rate limits, timeouts, network failures, server failures, and endpoint errors must use distinct stable, non-sensitive result codes and must not be treated as invalid keys.
-- Changing a provider check configuration must clear previous key check timestamps and results. No network request may be made when checking is unsupported.
+- Changing a provider check configuration must clear previous key check results. No network request may be made when checking is unsupported.
 
 ## 9. Change checklist
 

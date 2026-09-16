@@ -4,7 +4,7 @@ const zhTW = {
   common: { close: "關閉", cancel: "取消", save: "儲存", delete: "刪除", configure: "設定", open: "開啟", clear: "清除", optional: "選填", required: "必填", expand: "展開", collapse: "收合", uploadImage: "上傳圖片", replaceImage: "更換圖片", removeAvatar: "移除頭像", providerIconAlt: "{name} 圖示", selectedProviderAvatarAlt: "已選取的供應商頭像" },
   navigation: { main: "主要導覽", dashboard: "儀表板", providers: "供應商", settings: "設定" },
   dashboard: {
-    title: "儀表板", searchPlaceholder: "搜尋供應商或 Key 備註", addConfiguration: "新增設定", statisticsLabel: "Key 統計", providerCount: "供應商數量", keyCount: "Key 總數", availableKeyCount: "可用 Key", dragToReorder: "按住拖曳以調整順序", officialProvider: "官方", customProvider: "自訂", noPlatformUrl: "尚未設定平台管理網址", availableSummary: "（{count} 可用）", refreshStatus: "重新檢查狀態", validationUnsupported: "此供應商尚未設定 Key 檢查", lastChecked: "上次檢查：{time}", addKey: "新增 Key",
+    title: "儀表板", searchPlaceholder: "搜尋供應商或 Key 備註", addConfiguration: "新增設定", statisticsLabel: "Key 統計", providerCount: "供應商數量", keyCount: "Key 總數", availableKeyCount: "可用 Key", dragToReorder: "按住拖曳以調整順序", officialProvider: "官方", customProvider: "自訂", noPlatformUrl: "尚未設定平台管理網址", availableSummary: "（{count} 可用）", refreshStatus: "重新檢查狀態", validationUnsupported: "此供應商尚未設定 Key 檢查", addKey: "新增 Key",
     columns: { remark: "備註", maskedKey: "API Key（部分隱藏）", status: "狀態", actions: "操作" },
     actions: { checkKey: "檢查 Key", editKey: "編輯 Key", copyKey: "複製 Key", copied: "已複製", deleteKey: "刪除 Key" },
     keyDisclosure: "僅顯示部分 Key；完整密鑰不會回傳到清單。",

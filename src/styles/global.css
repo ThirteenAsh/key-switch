@@ -649,18 +649,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: var(--info-surface);
 }
 
-.key-status-detail {
-  display: grid;
-  justify-items: start;
-  gap: 4px;
-}
-
-.key-status-detail time {
-  color: var(--text-subtle);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
 /* 空状态 */
 .empty-state {
   display: grid;

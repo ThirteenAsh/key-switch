@@ -60,6 +60,7 @@ fn command_error_code(message: &str) -> &'static str {
         || message.starts_with("无法轮转")
         || message.starts_with("无法打开日志文件")
         || message.starts_with("无法写入日志")
+        || message.starts_with("日志格式无效")
     {
         "LOG_UNAVAILABLE"
     } else if message.starts_with("无法打开目录") {
@@ -163,7 +164,6 @@ struct ApiKeyRecord {
     remark: String,
     secret_id: String,
     status: String,
-    last_checked_at: Option<String>,
     #[serde(default)]
     check_error_code: Option<String>,
 }
@@ -223,6 +223,15 @@ struct AppSettings {
     theme_preference: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClientLogInput {
+    level: String,
+    event: String,
+    #[serde(default)]
+    detail: Option<String>,
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -241,7 +250,6 @@ struct ApiKeySummary {
     remark: String,
     masked_value: String,
     status: String,
-    last_checked_at: Option<String>,
     check_error_code: Option<String>,
 }
 
@@ -449,6 +457,7 @@ const SETTINGS_BACKUP_FILE_NAME: &str = "settings.json.bak";
 const SETTINGS_TEMP_FILE_NAME: &str = "settings.json.tmp";
 const SETTINGS_SCHEMA_VERSION: u32 = 1;
 const MAX_LOG_FILE_SIZE: u64 = 1024 * 1024;
+const MAX_CLIENT_LOG_DETAIL_CHARS: usize = 2400;
 const AUTOMATIC_UPDATES_ENABLED: bool = true;
 static LOG_LOCK: Mutex<()> = Mutex::new(());
 static SETTINGS_LOCK: Mutex<()> = Mutex::new(());
@@ -615,7 +624,29 @@ fn append_log(
         .open(file)
         .map_err(|e| format!("无法打开日志文件：{e}"))?;
     writeln!(output, "{} [{}] {} {}", now(), level, event, detail)
+        .and_then(|_| output.flush())
+        .and_then(|_| output.sync_data())
         .map_err(|e| format!("无法写入日志：{e}"))
+}
+
+fn valid_client_log_level(level: &str) -> bool {
+    matches!(level, "INFO" | "WARN" | "ERROR")
+}
+
+fn valid_client_log_event(event: &str) -> bool {
+    !event.is_empty()
+        && event.chars().count() <= 80
+        && event.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.')
+        })
+}
+
+fn sanitize_client_log_detail(detail: &str) -> String {
+    detail
+        .chars()
+        .filter(|character| !character.is_control() || *character == '\t')
+        .take(MAX_CLIENT_LOG_DETAIL_CHARS)
+        .collect()
 }
 
 fn open_directory(directory: PathBuf) -> Result<(), String> {
@@ -677,7 +708,6 @@ fn key_summary(key: &ApiKeyRecord) -> Result<ApiKeySummary, String> {
         remark: key.remark.clone(),
         masked_value: mask(&key_value(key)?),
         status: key.status.clone(),
-        last_checked_at: key.last_checked_at.clone(),
         check_error_code: key.check_error_code.clone(),
     })
 }
@@ -700,7 +730,6 @@ fn summary(provider: &ProviderRecord) -> Result<ProviderSummary, String> {
                 let mut result = key_summary(key)?;
                 if !validation_supported {
                     result.status = "unsupported".into();
-                    result.last_checked_at = None;
                     result.check_error_code = None;
                 }
                 Ok::<ApiKeySummary, String>(result)
@@ -1049,9 +1078,10 @@ mod tests {
     use super::{
         build_validation_request, classify_validation_status, command_error_code,
         load_settings_from_file, normalize_validation_config, parse_safe_validation_url,
-        save_settings_to_file, valid_header_name, valid_locale_preference, valid_theme_preference,
-        AppData, AppSettings, KeyValidationSpec, SemVersion, ValidationConfig, ValidationOutcome,
-        SETTINGS_BACKUP_FILE_NAME, SETTINGS_FILE_NAME, SETTINGS_SCHEMA_VERSION,
+        sanitize_client_log_detail, save_settings_to_file, valid_client_log_event,
+        valid_client_log_level, valid_header_name, valid_locale_preference, valid_theme_preference,
+        AppData, AppSettings, ClientLogInput, KeyValidationSpec, SemVersion, ValidationConfig,
+        ValidationOutcome, SETTINGS_BACKUP_FILE_NAME, SETTINGS_FILE_NAME, SETTINGS_SCHEMA_VERSION,
         SETTINGS_TEMP_FILE_NAME,
     };
     use reqwest::StatusCode;
@@ -1218,6 +1248,25 @@ mod tests {
             assert!(valid_theme_preference(theme));
         }
         assert!(!valid_theme_preference("sepia"));
+    }
+
+    #[test]
+    fn validates_and_sanitizes_client_log_entries() {
+        for level in ["INFO", "WARN", "ERROR"] {
+            assert!(valid_client_log_level(level));
+        }
+        assert!(!valid_client_log_level("DEBUG"));
+        assert!(valid_client_log_event("vue_error"));
+        assert!(valid_client_log_event("tauri.command.failed"));
+        assert!(!valid_client_log_event("vue error"));
+        assert!(!valid_client_log_event(""));
+        assert_eq!(
+            sanitize_client_log_detail("first\nsecond\rthird"),
+            "firstsecondthird"
+        );
+        let entry: ClientLogInput =
+            serde_json::from_str(r#"{"level":"INFO","event":"frontend_started"}"#).unwrap();
+        assert_eq!(entry.detail, None);
     }
 
     #[test]
@@ -1483,6 +1532,19 @@ fn open_log_directory(app: tauri::AppHandle) -> Result<(), CommandError> {
 }
 
 #[tauri::command]
+fn write_client_log(app: tauri::AppHandle, input: ClientLogInput) -> Result<(), CommandError> {
+    if !valid_client_log_level(&input.level) || !valid_client_log_event(&input.event) {
+        return Err("日志格式无效".into());
+    }
+    let detail = input
+        .detail
+        .as_deref()
+        .map(sanitize_client_log_detail)
+        .unwrap_or_default();
+    append_log(&app, &input.level, &input.event, &detail).map_err(CommandError::from)
+}
+
+#[tauri::command]
 fn clear_logs(app: tauri::AppHandle) -> Result<(), CommandError> {
     let _guard = LOG_LOCK
         .lock()
@@ -1573,7 +1635,6 @@ fn update_provider(
             } else {
                 "unsupported".into()
             };
-            key.last_checked_at = None;
             key.check_error_code = None;
         }
     }
@@ -1653,7 +1714,6 @@ fn create_api_key(
             "unsupported"
         }
         .into(),
-        last_checked_at: None,
         check_error_code: None,
     };
     let result = key_summary(&key)?;
@@ -1696,7 +1756,6 @@ fn update_api_key(
         .map_err(|e| format!("无法写入系统密钥库：{e}"))?;
     key.remark = next_remark;
     key.status = "untested".into();
-    key.last_checked_at = None;
     key.check_error_code = None;
     let result = ApiKeySummary {
         id: key.id.clone(),
@@ -1704,7 +1763,6 @@ fn update_api_key(
         remark: key.remark.clone(),
         masked_value: mask(next_value),
         status: key.status.clone(),
-        last_checked_at: None,
         check_error_code: None,
     };
 
@@ -1768,7 +1826,6 @@ async fn check_provider_keys(
     let Some(validation_spec) = key_validation_spec(provider) else {
         for key in &mut provider.keys {
             key.status = "unsupported".into();
-            key.last_checked_at = None;
             key.check_error_code = None;
         }
         let result = provider
@@ -1784,7 +1841,6 @@ async fn check_provider_keys(
         Err(error_code) => {
             for key in &mut provider.keys {
                 key.status = "error".into();
-                key.last_checked_at = Some(now());
                 key.check_error_code = Some(error_code.into());
             }
             let result = provider
@@ -1802,7 +1858,6 @@ async fn check_provider_keys(
         let outcome = validate_key(&client, &validation_spec, &value).await;
         key.status = outcome.status.into();
         key.check_error_code = outcome.error_code.map(str::to_string);
-        key.last_checked_at = Some(now());
     }
     let result = provider
         .keys
@@ -1848,7 +1903,6 @@ async fn check_api_key(
         .ok_or("未找到 API Key")?;
     let Some(validation_spec) = validation_spec else {
         key.status = "unsupported".into();
-        key.last_checked_at = None;
         key.check_error_code = None;
         let result = key_summary(key)?;
         save_data(&app, &data)?;
@@ -1858,7 +1912,6 @@ async fn check_api_key(
         Ok(resolved) => resolved,
         Err(error_code) => {
             key.status = "error".into();
-            key.last_checked_at = Some(now());
             key.check_error_code = Some(error_code.into());
             let result = key_summary(key)?;
             save_data(&app, &data)?;
@@ -1870,14 +1923,12 @@ async fn check_api_key(
     let outcome = validate_key(&client, &validation_spec, &value).await;
     key.status = outcome.status.into();
     key.check_error_code = outcome.error_code.map(str::to_string);
-    key.last_checked_at = Some(now());
     let result = ApiKeySummary {
         id: key.id.clone(),
         provider_id: key.provider_id.clone(),
         remark: key.remark.clone(),
         masked_value: mask(&value),
         status: key.status.clone(),
-        last_checked_at: key.last_checked_at.clone(),
         check_error_code: key.check_error_code.clone(),
     };
     save_data(&app, &data)?;
@@ -1911,6 +1962,7 @@ pub fn run() {
             install_update,
             open_data_directory,
             open_log_directory,
+            write_client_log,
             clear_logs,
             list_providers,
             create_provider,

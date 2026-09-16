@@ -38,7 +38,6 @@ const zhCN = {
     availableSummary: "（{count} 可用）",
     refreshStatus: "重新检测状态",
     validationUnsupported: "该供应商未配置 Key 检测",
-    lastChecked: "上次检测：{time}",
     addKey: "添加 Key",
     columns: {
       remark: "备注",
