@@ -4,6 +4,7 @@ import {
   isDesktopApp,
   loadAppSettings,
   saveAppSettings,
+  setAppWindowTheme,
   SETTINGS_SCHEMA_VERSION,
   type AppSettings,
 } from "../api/app";
@@ -21,12 +22,17 @@ export function isThemePreference(value: unknown): value is ThemePreference {
   return value === "system" || value === "light" || value === "dark";
 }
 
-function applyThemePreference(preference: ThemePreference): void {
+async function applyThemePreference(preference: ThemePreference): Promise<void> {
   const resolvedTheme = preference === "system"
     ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
     : preference;
   document.documentElement.dataset.theme = resolvedTheme;
   document.documentElement.style.colorScheme = resolvedTheme;
+  try {
+    await setAppWindowTheme(preference === "system" ? null : preference);
+  } catch {
+    // WebView 主题仍可正常使用；原生窗口主题失败已写入运行日志。
+  }
 }
 
 function normalizeSettings(settings: AppSettings): AppSettings {
@@ -63,7 +69,7 @@ export const useSettingsStore = defineStore("settings", () => {
 
   const systemThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   const handleSystemThemeChange = () => {
-    if (themePreference.value === "system") applyThemePreference("system");
+    if (themePreference.value === "system") void applyThemePreference("system");
   };
   systemThemeMedia.addEventListener("change", handleSystemThemeChange);
   onScopeDispose(() => systemThemeMedia.removeEventListener("change", handleSystemThemeChange));
@@ -74,14 +80,14 @@ export const useSettingsStore = defineStore("settings", () => {
 
   async function load(): Promise<void> {
     applyLocalePreference(localePreference.value);
-    applyThemePreference(themePreference.value);
+    await applyThemePreference(themePreference.value);
     try {
       if (!isDesktopApp()) return;
       const loadedSettings = normalizeSettings(await loadAppSettings(legacyLocalePreference ?? undefined));
       settings.value = loadedSettings;
       persistedSettings = { ...loadedSettings };
       applyLocalePreference(localePreference.value);
-      applyThemePreference(themePreference.value);
+      await applyThemePreference(themePreference.value);
       clearLegacyLocalePreference();
     } finally {
       loaded.value = true;
@@ -98,7 +104,7 @@ export const useSettingsStore = defineStore("settings", () => {
     };
     settings.value = nextSettings;
     applyLocalePreference(localePreference.value);
-    applyThemePreference(themePreference.value);
+    await applyThemePreference(themePreference.value);
 
     if (!isDesktopApp()) {
       persistedSettings = { ...nextSettings };
@@ -122,7 +128,7 @@ export const useSettingsStore = defineStore("settings", () => {
       if (revision === changeRevision) {
         settings.value = { ...persistedSettings };
         applyLocalePreference(localePreference.value);
-        applyThemePreference(themePreference.value);
+        await applyThemePreference(themePreference.value);
       }
       throw saveError;
     }
@@ -130,7 +136,7 @@ export const useSettingsStore = defineStore("settings", () => {
     if (savedSettings && revision === changeRevision) {
       settings.value = savedSettings;
       applyLocalePreference(localePreference.value);
-      applyThemePreference(themePreference.value);
+      await applyThemePreference(themePreference.value);
     }
   }
 

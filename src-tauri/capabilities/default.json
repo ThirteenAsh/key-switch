@@ -7,6 +7,7 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-set-theme",
     "opener:allow-open-url",
     "opener:allow-default-urls",
     "clipboard-manager:allow-write-text"

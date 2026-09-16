@@ -80,7 +80,7 @@ Current settings file example:
 }
 ```
 
-`themePreference` accepts `system`, `light`, or `dark`. The theme is selected on the Settings page; `system` follows operating-system appearance changes in real time. Changes are persisted through the settings Store write queue.
+`themePreference` accepts `system`, `light`, or `dark`. The theme is selected on the Settings page; `system` follows operating-system appearance changes in real time. The theme is applied to both WebView content and the native Tauri window title bar, and changes are persisted through the settings Store write queue.
 
 Settings startup flow:
 

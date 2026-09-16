@@ -80,7 +80,7 @@ cargo test --locked
 }
 ```
 
-`themePreference` 支持 `system`、`light` 和 `dark`。主题在设置页面选择；`system` 会实时跟随操作系统的浅色或深色外观，变更通过设置 Store 的写入队列持久化。
+`themePreference` 支持 `system`、`light` 和 `dark`。主题在设置页面选择；`system` 会实时跟随操作系统的浅色或深色外观。主题同时应用到 WebView 内容和 Tauri 原生窗口标题栏，变更通过设置 Store 的写入队列持久化。
 
 设置启动流程：
 

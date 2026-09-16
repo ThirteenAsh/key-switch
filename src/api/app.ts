@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { ApiKeySummary, ProviderSummary, ProviderValidation } from "../types/domain";
 import type { AppErrorPayload } from "../i18n/errors";
 
@@ -63,6 +64,20 @@ function errorCodeForLog(error: unknown): string {
 export function writeClientLog(input: ClientLogInput): Promise<void> {
   if (!isDesktopApp()) return Promise.resolve();
   return invoke<void>("write_client_log", { input });
+}
+
+export async function setAppWindowTheme(theme: "light" | "dark" | null): Promise<void> {
+  if (!isDesktopApp()) return;
+  try {
+    await getCurrentWindow().setTheme(theme);
+  } catch (error) {
+    void writeClientLog({
+      level: "ERROR",
+      event: "tauri_command_failed",
+      detail: `command=set_window_theme code=${errorCodeForLog(error)}`,
+    }).catch(() => undefined);
+    throw error;
+  }
 }
 
 function desktopInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {

@@ -25,7 +25,7 @@ import { useI18n } from "vue-i18n";
 import { getAppInfo } from "../api/app";
 import { useUpdateStore } from "../stores/update";
 
-const version = ref("v1.0.1");
+const version = ref("v1.0.2");
 const updateStore = useUpdateStore();
 const { t } = useI18n();
 
