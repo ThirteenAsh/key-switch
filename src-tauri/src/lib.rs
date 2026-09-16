@@ -168,10 +168,11 @@ struct ApiKeyRecord {
     check_error_code: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "mode")]
 enum ValidationConfig {
     #[serde(rename = "none")]
+    #[default]
     None,
     #[serde(rename = "openai-compatible")]
     OpenAiCompatible {
@@ -186,12 +187,6 @@ enum ValidationConfig {
         #[serde(rename = "headerName")]
         header_name: String,
     },
-}
-
-impl Default for ValidationConfig {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -1019,7 +1014,7 @@ fn validation_client(resolved: &ResolvedValidationEndpoint) -> Result<reqwest::C
         .timeout(Duration::from_secs(10))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("Key-Switch/1.0.1")
+        .user_agent("Key-Switch/1.0.2")
         .resolve_to_addrs(&resolved.host, &resolved.addresses)
         .build()
         .map_err(|e| format!("无法初始化网络客户端：{e}"))
@@ -1377,7 +1372,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         .timeout(Duration::from_secs(12))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::limited(3))
-        .user_agent("Key-Switch-Update-Check/1.0.1")
+        .user_agent("Key-Switch-Update-Check/1.0.2")
         .build()
         .map_err(|e| format!("无法初始化更新检测客户端：{e}"))?;
     let response = client

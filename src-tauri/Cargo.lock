@@ -2264,7 +2264,7 @@ dependencies = [
 
 [[package]]
 name = "key-switch"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "keyring",
  "reqwest",
