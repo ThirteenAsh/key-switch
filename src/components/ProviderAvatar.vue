@@ -7,7 +7,10 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <span class="provider-avatar" :class="`provider-avatar--${provider.tone}`">
+  <span
+    class="provider-avatar"
+    :class="[`provider-avatar--${provider.tone}`, { 'provider-avatar--image': provider.logo }]"
+  >
     <img v-if="provider.logo" :class="{ 'provider-avatar__custom-image': provider.kind === 'custom' }" :src="provider.logo" :alt="t('common.providerIconAlt', { name: provider.name })" />
     <span v-else class="provider-abbr">{{ provider.abbreviation }}</span>
   </span>
@@ -23,7 +26,7 @@ const { t } = useI18n();
   flex: 0 0 38px;
   border-radius: 10px;
   background: transparent;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -46,26 +49,30 @@ const { t } = useI18n();
   object-fit: cover;
 }
 
+:global(:root[data-theme="dark"] .provider-avatar--image) {
+  background: rgba(255, 255, 255, 0.92);
+}
+
 .provider-abbr {
   font-size: 13px;
   font-weight: 700;
-  color: #334155;
+  color: var(--text-secondary);
   line-height: 1;
 }
 
 .provider-avatar--blue {
-  border-color: #cbd5e1;
+  border-color: var(--border-strong);
 }
 .provider-avatar--violet {
-  border-color: #cbd5e1;
+  border-color: var(--border-strong);
 }
 .provider-avatar--orange {
-  border-color: #cbd5e1;
+  border-color: var(--border-strong);
 }
 .provider-avatar--indigo {
-  border-color: #cbd5e1;
+  border-color: var(--border-strong);
 }
 .provider-avatar--gray {
-  border-color: #cbd5e1;
+  border-color: var(--border-strong);
 }
 </style>

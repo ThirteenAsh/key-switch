@@ -2,7 +2,7 @@ import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { builtinProviderCatalog, getBuiltinProviderName } from "../data/providerCatalog";
 import { checkApiKey, checkProviderKeys, createApiKey, createProvider, deleteApiKey, deleteProvider, listProviders, reorderProviders, updateApiKey, updateProvider } from "../api/app";
-import type { ProviderSummary } from "../types/domain";
+import type { ProviderSummary, ProviderValidation } from "../types/domain";
 import type { AppLocale } from "../i18n/locale";
 import { effectiveLocale } from "../i18n";
 
@@ -28,17 +28,19 @@ export const useDashboardStore = defineStore("dashboard", () => {
       logo: provider.logo,
       kind: "builtin",
       platformUrl: provider.platformUrl,
+      validation: { mode: "none" },
     }));
     expandedProviderId.value = id;
     return true;
   }
-  async function addCustomProvider(name: string, platformUrl: string, logo?: string) {
+  async function addCustomProvider(input: { name: string; platformUrl: string; logo?: string; validation: ProviderValidation }) {
+    const { name, platformUrl, logo, validation } = input;
     const normalized = name.trim(); if (!normalized || providers.value.some((p) => p.name === normalized)) return false;
     const id = `custom-${crypto.randomUUID()}`;
-    providers.value.push(await createProvider({ id, name: normalized, abbreviation: normalized.slice(0, 2).toUpperCase(), tone: "gray", kind: "custom", platformUrl: platformUrl.trim() || undefined, logo })); expandedProviderId.value = id; return true;
+    providers.value.push(await createProvider({ id, name: normalized, abbreviation: normalized.slice(0, 2).toUpperCase(), tone: "gray", kind: "custom", platformUrl: platformUrl.trim() || undefined, logo, validation })); expandedProviderId.value = id; return true;
   }
-  async function updateProviderConfiguration(id: string, name: string, platformUrl: string) {
-    const updated = await updateProvider({ id, name, platformUrl: platformUrl.trim() || undefined }); const index = providers.value.findIndex((p) => p.id === id); if (index < 0) return false; providers.value[index] = updated; return true;
+  async function updateProviderConfiguration(id: string, name: string, platformUrl: string, validation: ProviderValidation) {
+    const updated = await updateProvider({ id, name, platformUrl: platformUrl.trim() || undefined, validation }); const index = providers.value.findIndex((p) => p.id === id); if (index < 0) return false; providers.value[index] = updated; return true;
   }
   async function removeProvider(providerId: string) { await deleteProvider(providerId); providers.value = providers.value.filter((provider) => provider.id !== providerId); if (expandedProviderId.value === providerId) expandedProviderId.value = ""; }
   function reorderProvidersLocally(from: number, to: number) { const [moved] = providers.value.splice(from, 1); providers.value.splice(to, 0, moved); void reorderProviders(providers.value.map((p) => p.id)); }

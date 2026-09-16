@@ -3,7 +3,9 @@ import { ref, watch } from "vue";
 import { Save, X } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
-import type { ProviderSummary } from "../types/domain";
+import ProviderValidationFields from "./ProviderValidationFields.vue";
+import type { ProviderSummary, ProviderValidation } from "../types/domain";
+import { normalizeProviderValidation, validateProviderValidation } from "../utils/providerValidation";
 
 const props = defineProps<{
   open: boolean;
@@ -13,17 +15,21 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];
-  save: [payload: { id: string; name: string; platformUrl: string }];
+  save: [payload: { id: string; name: string; platformUrl: string; validation: ProviderValidation }];
 }>();
 
 const name = ref("");
 const platformUrl = ref("");
+const validation = ref<ProviderValidation>({ mode: "none" });
 const error = ref("");
 
 watch(() => [props.open, props.provider] as const, ([isOpen, provider]) => {
   if (!isOpen || !provider) return;
   name.value = provider.name;
   platformUrl.value = provider.platformUrl ?? "";
+  // provider 来自 Pinia 响应式状态，不能直接交给 structuredClone；这些配置只包含
+  // 字符串字段，展开为普通对象即可避免编辑弹窗与列表状态互相修改。
+  validation.value = { ...provider.validation };
   error.value = "";
 }, { immediate: true });
 
@@ -57,7 +63,21 @@ function submit() {
     return;
   }
 
-  emit("save", { id: props.provider.id, name: normalizedName, platformUrl: normalizedPlatformUrl });
+
+  if (props.provider.kind === "custom") {
+    const validationError = validateProviderValidation(validation.value);
+    if (validationError) {
+      error.value = t(`providerDialog.errors.${validationError}`);
+      return;
+    }
+  }
+
+  emit("save", {
+    id: props.provider.id,
+    name: normalizedName,
+    platformUrl: normalizedPlatformUrl,
+    validation: props.provider.kind === "custom" ? normalizeProviderValidation(validation.value) : { mode: "none" },
+  });
 }
 </script>
 
@@ -85,6 +105,7 @@ function submit() {
               <span>{{ t("providerDialog.platformUrl") }}</span>
               <input v-model="platformUrl" type="text" inputmode="url" placeholder="https://platform.example.com" autocomplete="url" @blur="ensureHttpsPrefix" />
             </label>
+            <ProviderValidationFields v-if="provider.kind === 'custom'" v-model="validation" />
             <p v-if="error" class="provider-edit-error" role="alert">{{ error }}</p>
             <footer>
               <AppButton variant="secondary" type="button" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
@@ -114,9 +135,12 @@ function submit() {
 .provider-edit-dialog {
   width: 480px;
   max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   padding: 24px;
+  box-sizing: border-box;
   border-radius: 16px;
-  background: #fff;
+  background: var(--surface-raised);
   box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);
 }
 
@@ -129,13 +153,13 @@ function submit() {
 
 .provider-edit-header h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 18px;
 }
 
 .provider-edit-header p {
   margin: 4px 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12.5px;
 }
 
@@ -148,7 +172,7 @@ function submit() {
 .provider-edit-form label {
   display: grid;
   gap: 7px;
-  color: #1e293b;
+  color: var(--text-strong);
   font-size: 13px;
   font-weight: 600;
 }
@@ -156,25 +180,25 @@ function submit() {
 .provider-edit-form input {
   height: 42px;
   padding: 0 13px;
-  color: #0f172a;
+  color: var(--text-primary);
   font: inherit;
   font-weight: 400;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 9px;
   outline: 0;
-  background: #f8fafc;
+  background: var(--surface-app);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .provider-edit-form input:focus {
   border-color: #38bdf8;
-  background: #fff;
+  background: var(--surface-raised);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
 }
 
 .provider-edit-error {
   margin: -6px 0 0;
-  color: #dc2626;
+  color: var(--danger-text);
   font-size: 12px;
 }
 

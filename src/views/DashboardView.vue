@@ -28,7 +28,7 @@ import { useDashboardStore } from "../stores/dashboard";
 import { copyApiKey } from "../api/app";
 import { effectiveLocale } from "../i18n";
 import { translateAppError } from "../i18n/errors";
-import type { ApiKeySummary, ProviderSummary } from "../types/domain";
+import type { ApiKeySummary, ProviderSummary, ProviderValidation } from "../types/domain";
 
 const store = useDashboardStore();
 const { t } = useI18n();
@@ -62,6 +62,10 @@ async function handleCopy(keyId: string) {
 async function handleRefreshProvider(providerId: string, event: MouseEvent) {
   event.stopPropagation();
   const provider = store.providers.find((item) => item.id === providerId);
+  if (provider && !provider.validationSupported) {
+    notify(t("dashboard.notices.validationUnsupported"));
+    return;
+  }
   if (checkingProviderId.value || provider?.keys.some((key) => key.status === "checking")) return;
   checkingProviderId.value = providerId;
   notify(t("dashboard.notices.checkingProvider"));
@@ -70,7 +74,8 @@ async function handleRefreshProvider(providerId: string, event: MouseEvent) {
     const validCount = keys.filter((key) => key.status === "valid").length;
     const invalidCount = keys.filter((key) => key.status === "invalid").length;
     const errorCount = keys.filter((key) => key.status === "error").length;
-    notify(t("dashboard.notices.checkComplete", { valid: validCount, invalid: invalidCount, error: errorCount }));
+    const unsupportedCount = keys.filter((key) => key.status === "unsupported").length;
+    notify(t("dashboard.notices.checkComplete", { valid: validCount, invalid: invalidCount, error: errorCount, unsupported: unsupportedCount }));
   }
   catch (error) { notify(translateAppError(error, "dashboard.notices.checkFailed")); }
   finally { checkingProviderId.value = null; }
@@ -82,11 +87,22 @@ function openCreateKeyDialog(provider: ProviderSummary) {
 }
 
 async function handleCheckKey(providerId: string, keyId: string) {
+  const provider = store.providers.find((item) => item.id === providerId);
+  if (provider && !provider.validationSupported) {
+    notify(t("dashboard.notices.validationUnsupported"));
+    return;
+  }
   try {
     const key = await store.checkKey(providerId, keyId);
     const message = key.status === "valid"
       ? t("dashboard.notices.keyValid")
-      : key.status === "invalid" ? t("dashboard.notices.keyInvalid") : t("dashboard.notices.keyCheckError");
+      : key.status === "invalid"
+        ? t("dashboard.notices.keyInvalid")
+        : key.status === "unsupported"
+          ? t("dashboard.notices.validationUnsupported")
+          : key.checkErrorCode
+            ? t(`statusReasons.${key.checkErrorCode}`)
+            : t("dashboard.notices.keyCheckError");
     notify(message);
   } catch (error) { notify(translateAppError(error, "dashboard.notices.checkFailed")); }
 }
@@ -409,7 +425,7 @@ function applyCollapsedAccordionStyles(accordion: HTMLElement) {
 function applyExpandedAccordionStyles(accordion: HTMLElement) {
   accordion.style.paddingTop = "10px";
   accordion.style.paddingBottom = "14px";
-  accordion.style.borderTopColor = "#e2e8f0";
+  accordion.style.borderTopColor = "var(--border)";
 }
 
 function resetAccordionStyles(element: Element) {
@@ -536,9 +552,9 @@ async function addBuiltinProvider(providerId: string) {
   }
 }
 
-async function addCustomProvider(name: string, platformUrl: string, logo?: string) {
+async function addCustomProvider(name: string, platformUrl: string, logo: string | undefined, validation: ProviderValidation) {
   try {
-    if (!await store.addCustomProvider(name, platformUrl, logo)) {
+    if (!await store.addCustomProvider({ name, platformUrl, logo, validation })) {
       notify(t("dashboard.notices.providerExists"));
       return;
     }
@@ -641,9 +657,9 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
               <button
                 class="refresh-btn"
                 :class="{ 'is-spinning': checkingProviderId === provider.id }"
-                :disabled="checkingProviderId === provider.id || provider.keys.some((key) => key.status === 'checking')"
-                :title="t('dashboard.refreshStatus')"
-                :aria-label="t('dashboard.refreshStatus')"
+                :disabled="!provider.validationSupported || provider.keys.length === 0 || checkingProviderId === provider.id || provider.keys.some((key) => key.status === 'checking')"
+                :title="t(provider.validationSupported ? 'dashboard.refreshStatus' : 'dashboard.validationUnsupported')"
+                :aria-label="t(provider.validationSupported ? 'dashboard.refreshStatus' : 'dashboard.validationUnsupported')"
                 type="button"
                 @click="handleRefreshProvider(provider.id, $event)"
               >
@@ -704,14 +720,15 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
                     <td class="masked-key">
                       <code>{{ key.maskedValue }}</code>
                     </td>
-                    <td><StatusBadge :status="key.status" /></td>
+                    <td><StatusBadge :status="key.status" :error-code="key.checkErrorCode" /></td>
                     <td><span class="key-actions">
                       <AppButton
                         variant="ghost"
                         size="icon-sm"
                         :loading="key.status === 'checking'"
-                        :title="t('dashboard.actions.checkKey')"
-                        :aria-label="t('dashboard.actions.checkKey')"
+                        :disabled="!provider.validationSupported"
+                        :title="t(provider.validationSupported ? 'dashboard.actions.checkKey' : 'dashboard.validationUnsupported')"
+                        :aria-label="t(provider.validationSupported ? 'dashboard.actions.checkKey' : 'dashboard.validationUnsupported')"
                         @click="handleCheckKey(provider.id, key.id)"
                       >
                         <ShieldCheck :size="15" :stroke-width="2" />
@@ -835,7 +852,7 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #cbd5e1;
+  color: var(--border-strong);
   cursor: grab;
   padding: 6px 3px;
   border-radius: 4px;
@@ -844,8 +861,8 @@ async function addCustomProvider(name: string, platformUrl: string, logo?: strin
 }
 
 .drag-handle:hover {
-  color: #64748b;
-  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-muted);
+  background: var(--interactive-hover);
 }
 
 .drag-handle:active {

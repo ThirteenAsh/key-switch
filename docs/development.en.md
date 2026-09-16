@@ -75,9 +75,12 @@ Current settings file example:
 ```json
 {
   "schemaVersion": 1,
-  "localePreference": "system"
+  "localePreference": "system",
+  "themePreference": "system"
 }
 ```
+
+`themePreference` accepts `system`, `light`, or `dark`. The theme is selected on the Settings page; `system` follows operating-system appearance changes in real time. The theme is applied to both WebView content and the native Tauri window title bar, and changes are persisted through the settings Store write queue.
 
 Settings startup flow:
 
@@ -85,7 +88,7 @@ Settings startup flow:
 2. Rust reads and validates `settings.json`, creating defaults on the first run.
 3. For upgraded users, the old `key-switch.locale` value is migrated only when the settings file is first created.
 4. The legacy `localStorage` key is removed after a successful migration.
-5. Vue mounts only after settings are returned, preventing a locale flash.
+5. The language and theme are applied before Vue mounts, preventing a startup flash.
 
 Settings writes are protected as follows:
 
@@ -105,6 +108,8 @@ When adding a setting, update all of the following:
 5. The settings UI, all four message sets, and relevant tests.
 
 The frontend merges partial changes with `settingsStore.updateSettings()`, but every command and file write contains the complete settings object. A compatible field with a default can keep the current `schemaVersion`. Removing a field, changing its type, or changing its meaning requires a version bump and an explicit migration. Do not change only the version number: unsupported versions are intentionally rejected.
+
+Logging behavior: native business events are written to `logs/key-switch.log`, with one rotated 1 MB backup. The frontend uses a single logging command for Vue runtime errors, unhandled Promise rejections, resource errors, and failed Tauri commands. Client entries accept only allow-listed levels and event names; details have newlines removed, are truncated, and redact common credential fields. Users can open the log directory from the Settings page for troubleshooting.
 
 ## 6. Internationalization rules
 
@@ -148,6 +153,15 @@ Development rules:
 - The settings file stores non-sensitive preferences only. Review every new settings field for sensitivity.
 - Review `src-tauri/capabilities/` before adding a Tauri plugin or operating-system capability, and keep permissions minimal.
 - Never commit real API Keys in source, fixtures, Issues, pull requests, logs, or screenshots.
+
+### Custom provider key checks
+
+- Custom providers default to `none`. Existing records without a check configuration must also fall back to `none` and the unsupported status.
+- `platformUrl` is only for opening the management console and must not be used as a check endpoint. Check configuration is stored separately in provider metadata and currently supports OpenAI-compatible, Bearer token, and API key header modes.
+- A check configuration stores only an HTTPS endpoint, authentication mode, and a non-sensitive header name. The full key is still read temporarily from the system credential store by Rust only.
+- Custom check URLs must not contain credentials, query parameters, or fragments. Loopback, private, link-local, reserved addresses, and hostnames resolving to them are rejected, and HTTP redirects remain disabled.
+- Check requests do not read or log response bodies. Rate limits, timeouts, network failures, server failures, and endpoint errors must use distinct stable, non-sensitive result codes and must not be treated as invalid keys.
+- Changing a provider check configuration must clear previous key check results. No network request may be made when checking is unsupported.
 
 ## 9. Change checklist
 

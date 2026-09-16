@@ -29,6 +29,7 @@ export const appErrorTranslationKeys = {
   PROVIDER_NAME_EXISTS: "errors.providerNameExists",
   PROVIDER_NOT_FOUND: "errors.providerNotFound",
   PROVIDER_ORDER_INVALID: "errors.providerOrderInvalid",
+  PROVIDER_VALIDATION_INVALID: "errors.providerValidationInvalid",
   API_KEY_REQUIRED: "errors.apiKeyRequired",
   API_KEY_NOT_FOUND: "errors.apiKeyNotFound",
   CLIPBOARD_WRITE_FAILED: "errors.clipboardWriteFailed",

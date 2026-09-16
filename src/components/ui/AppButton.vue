@@ -186,41 +186,41 @@ const classes = computed(() => [
 
 /* 3. Secondary: 柔和半透明浅灰底衬 */
 .app-btn--secondary {
-  background: rgba(15, 23, 42, 0.045);
-  color: #334155;
+  background: var(--interactive-hover);
+  color: var(--text-secondary);
 }
 .app-btn--secondary:hover:not(.is-disabled) {
-  background: rgba(15, 23, 42, 0.08);
-  color: #0f172a;
+  background: var(--interactive-active);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
 .app-btn--secondary:active:not(.is-disabled) {
-  background: rgba(15, 23, 42, 0.1);
+  background: var(--interactive-active);
   transform: scale(0.98);
 }
 
 /* 4. Ghost: 纯平幽灵按钮（工具栏/行内操作标配） */
 .app-btn--ghost {
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
 }
 .app-btn--ghost:hover:not(.is-disabled) {
-  background: rgba(15, 23, 42, 0.05);
-  color: #0f172a;
+  background: var(--interactive-hover);
+  color: var(--text-primary);
 }
 .app-btn--ghost:active:not(.is-disabled) {
-  background: rgba(15, 23, 42, 0.08);
+  background: var(--interactive-active);
   transform: scale(0.96);
 }
 
 /* 5. Danger: 柔和暗红底衬与微光 */
 .app-btn--danger {
   background: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
+  color: var(--danger-text);
 }
 .app-btn--danger:hover:not(.is-disabled) {
   background: rgba(239, 68, 68, 0.16);
-  color: #dc2626;
+  color: var(--danger-text);
   box-shadow: 0 3px 10px rgba(239, 68, 68, 0.15);
   transform: translateY(-1px);
 }
@@ -232,17 +232,38 @@ const classes = computed(() => [
 /* 6. Success: 柔和翠绿底衬与微光 */
 .app-btn--success {
   background: rgba(16, 185, 129, 0.1);
-  color: #059669;
+  color: var(--success-text);
 }
 .app-btn--success:hover:not(.is-disabled) {
   background: rgba(16, 185, 129, 0.18);
-  color: #047857;
+  color: var(--success-text);
   box-shadow: 0 3px 10px rgba(16, 185, 129, 0.15);
   transform: translateY(-1px);
 }
 .app-btn--success:active:not(.is-disabled) {
   background: rgba(16, 185, 129, 0.22);
   transform: scale(0.98);
+}
+
+:global(:root[data-theme="dark"] .app-btn--primary) {
+  color: #ffffff;
+  background: linear-gradient(135deg, #5d70e7 0%, #4656c9 100%);
+  box-shadow: 0 5px 14px rgba(67, 82, 200, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+:global(:root[data-theme="dark"] .app-btn--primary:hover:not(.is-disabled)) {
+  background: linear-gradient(135deg, #6c7ef0 0%, #5262d7 100%);
+  box-shadow: 0 7px 18px rgba(67, 82, 200, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+:global(:root[data-theme="dark"] .app-btn--secondary) {
+  border: 1px solid rgba(52, 70, 96, 0.78);
+  background: rgba(26, 38, 57, 0.72);
+}
+
+:global(:root[data-theme="dark"] .app-btn--secondary:hover:not(.is-disabled)) {
+  border-color: rgba(129, 140, 248, 0.32);
+  background: rgba(45, 57, 84, 0.86);
 }
 
 /* 禁用与加载中 */
