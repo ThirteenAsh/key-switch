@@ -23,7 +23,7 @@
   <a href="https://github.com/ThirteenAsh/key-switch/network/members">
     <img src="https://img.shields.io/github/forks/ThirteenAsh/key-switch?style=flat-square&label=forks" alt="GitHub Forks" />
   </a>
-  <img src="https://img.shields.io/badge/version-1.0.2-f59e0b?style=flat-square" alt="版本 1.0.2" />
+  <img src="https://img.shields.io/badge/version-1.1.0-f59e0b?style=flat-square" alt="版本 1.1.0" />
   <img src="https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
   <img src="https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white" alt="Vue 3" />
   <img src="https://img.shields.io/badge/Rust-2021-f46623?style=flat-square&logo=rust&logoColor=white" alt="Rust 2021" />
@@ -33,7 +33,9 @@
 
 *你是否也因為服務商在首次建立 API Key 後便無法再次複製，導致密鑰難以統一管理而困擾？又是否因為 API 來自不同服務商，查找起來十分不便？*
 
-Key Switch 是一個本地 API Key 管理桌面應用程式，用於集中管理不同服務商的 API Key、記錄用途備註、檢查可用狀態，並在需要時安全複製或暫時查看密鑰。
+Key Switch 是一個本地 API Key 管理桌面應用程式，用於集中管理不同服務商的 API Key、記錄用途備註、檢查可用狀態，並在需要時安全複製密鑰。
+
+主頁左側選取供應商，右側管理對應 Key，支援拖曳排序與 Key 搜尋；設定依一般、資料與日誌、關於分類，支援四種介面語言及淺色、深色和跟隨系統主題。
 
 > 開發框架為 Tauri 2 + Vue 3 + Rust + Vite，旨在提供輕量、快速、安全的跨平台桌面應用程式。
 

@@ -23,7 +23,7 @@
   <a href="https://github.com/ThirteenAsh/key-switch/network/members">
     <img src="https://img.shields.io/github/forks/ThirteenAsh/key-switch?style=flat-square&label=forks" alt="GitHub Forks" />
   </a>
-  <img src="https://img.shields.io/badge/version-1.0.2-f59e0b?style=flat-square" alt="Version 1.0.2" />
+  <img src="https://img.shields.io/badge/version-1.1.0-f59e0b?style=flat-square" alt="Version 1.1.0" />
   <img src="https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
   <img src="https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white" alt="Vue 3" />
   <img src="https://img.shields.io/badge/Rust-2021-f46623?style=flat-square&logo=rust&logoColor=white" alt="Rust 2021" />
@@ -33,7 +33,9 @@
 
 *Are you tired of losing access to an API Key after creating it for the first time, or having keys scattered across different providers and difficult to find?*
 
-Key Switch is a local API Key management desktop app for managing keys from different providers, recording usage notes, checking availability, and securely copying or temporarily viewing keys when needed.
+Key Switch is a local API Key management desktop app for managing keys from different providers, recording usage notes, checking availability, and securely copying keys when needed.
+
+Select a provider in the left sidebar and manage its Keys on the right, with drag ordering and Key search. Settings are grouped into General, Data & logs, and About, with four interface languages and light, dark, or system themes.
 
 > Built with Tauri 2, Vue 3, Rust, and Vite to provide a lightweight, fast, and secure cross-platform desktop experience.
 

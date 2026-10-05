@@ -10,7 +10,6 @@
         </RouterView>
       </main>
     </div>
-    <AppFooter />
     <UpdateAvailableToast
       v-if="!updateDialogOpen"
       :update="availableUpdate"
@@ -36,7 +35,6 @@ import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { UpdateInfo } from "./api/app";
 import { checkForAppUpdates } from "./api/app";
-import AppFooter from "./components/AppFooter.vue";
 import AppSidebar from "./components/AppSidebar.vue";
 import UpdateAvailableDialog from "./components/UpdateAvailableDialog.vue";
 import UpdateAvailableToast from "./components/UpdateAvailableToast.vue";

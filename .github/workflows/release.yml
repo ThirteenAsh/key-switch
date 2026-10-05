@@ -10,7 +10,7 @@ on:
       tag_name:
         description: 要创建的版本标签（必须以 v 开头）
         required: true
-        default: v1.0.2
+        default: v1.1.0
         type: string
 
 permissions:
@@ -56,7 +56,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20.x
+          node-version: 22.x
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -72,6 +72,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test:frontend
 
       - name: Validate release tag matches application version
         env:

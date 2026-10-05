@@ -1014,7 +1014,7 @@ fn validation_client(resolved: &ResolvedValidationEndpoint) -> Result<reqwest::C
         .timeout(Duration::from_secs(10))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("Key-Switch/1.0.2")
+        .user_agent(concat!("Key-Switch/", env!("CARGO_PKG_VERSION")))
         .resolve_to_addrs(&resolved.host, &resolved.addresses)
         .build()
         .map_err(|e| format!("无法初始化网络客户端：{e}"))
@@ -1372,7 +1372,10 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         .timeout(Duration::from_secs(12))
         .connect_timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::limited(3))
-        .user_agent("Key-Switch-Update-Check/1.0.2")
+        .user_agent(concat!(
+            "Key-Switch-Update-Check/",
+            env!("CARGO_PKG_VERSION")
+        ))
         .build()
         .map_err(|e| format!("无法初始化更新检测客户端：{e}"))?;
     let response = client
