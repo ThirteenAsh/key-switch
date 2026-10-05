@@ -2,15 +2,24 @@ import type { MessageSchema } from "./zh-CN";
 
 const enUS = {
   common: {
+    appName: "Key Switch",
+    back: "Back",
+    retry: "Retry",
     close: "Close", cancel: "Cancel", save: "Save", delete: "Delete", configure: "Configure", open: "Open", clear: "Clear", optional: "Optional", required: "Required", expand: "Expand", collapse: "Collapse", uploadImage: "Upload image", replaceImage: "Replace image", removeAvatar: "Remove avatar", providerIconAlt: "{name} icon", selectedProviderAvatarAlt: "Selected provider avatar",
   },
-  navigation: { main: "Main navigation", dashboard: "Dashboard", providers: "Providers", settings: "Settings" },
+  navigation: { providerList: "Provider list", main: "Main navigation", dashboard: "Dashboard", providers: "Providers", settings: "Settings" },
   dashboard: {
+    loading: "Loading providers…",
+    loadFailed: "Unable to load providers",
+    keysForProvider: "API Keys for {name}",
+    keySearchPlaceholder: "Search Key remarks or masks",
+    reorderHelp: "Drag to reorder, or press Alt + ↑ / ↓",
+    reorderProvider: "Reorder {name}",
     title: "Dashboard", searchPlaceholder: "Search providers or key notes", addConfiguration: "Add configuration", statisticsLabel: "Key statistics", providerCount: "Providers", keyCount: "Total keys", availableKeyCount: "Available keys", dragToReorder: "Drag to reorder", officialProvider: "Official", customProvider: "Custom", noPlatformUrl: "No management URL configured", availableSummary: "({count} available)", refreshStatus: "Check status again", validationUnsupported: "Key checking is not configured for this provider", addKey: "Add key",
     columns: { remark: "Note", maskedKey: "API Key (partially hidden)", status: "Status", actions: "Actions" },
     actions: { checkKey: "Check key", editKey: "Edit key", copyKey: "Copy key", copied: "Copied", deleteKey: "Delete key" },
     keyDisclosure: "Only part of each key is shown. Full secrets are never returned to the list.",
-    empty: { noMatchesTitle: "No matching provider or note found", noProvidersTitle: "No providers configured yet", noMatchesDescription: "Try a different search term.", noProvidersDescription: "Start with a built-in provider or create a custom one.", clearSearch: "Clear search" },
+    empty: { noKeysTitle: "No API Keys yet", noKeysDescription: "Add a Key for this provider.", noKeysMatch: "No matching Keys", noMatchesTitle: "No matching provider or note found", noProvidersTitle: "No providers configured yet", noMatchesDescription: "Try a different search term.", noProvidersDescription: "Start with a built-in provider or create a custom one.", clearSearch: "Clear search" },
     deleteKeyDialog: { title: "Delete API key", message: "Delete this API key? This action cannot be undone." },
     notices: { copied: "Copied to clipboard", copyFailed: "Copy failed", checkingProvider: "Checking every key for this provider...", checkComplete: "Check complete: {valid} available, {invalid} invalid, {error} errors, {unsupported} unsupported", checkFailed: "Check failed. Verify the network and provider configuration.", validationUnsupported: "Configure a check method before checking this provider", keyValid: "This API key is valid", keyInvalid: "This API key is invalid", keyCheckError: "The check failed. Try again later.", keyReplaced: "API key replaced", remarkSaved: "Note saved", keySaved: "API key saved", editSaveFailed: "Could not save changes", keySaveFailed: "Could not save API key", keyDeleted: "API key deleted", keyDeleteFailed: "Could not delete API key", openPlatformFailed: "Could not open the provider management page", providerConfigured: "This provider is already configured", providerAdded: "Provider configuration added", providerExists: "A provider with this name already exists", customProviderAdded: "Custom provider configuration added" },
   },
@@ -20,12 +29,17 @@ const enUS = {
     notices: { addFailed: "Could not add provider: the name already exists", added: "Custom provider added and shown on the dashboard", saveFailed: "Could not save: the provider name exists or the configuration is invalid", saved: "Provider configuration saved and synced to the dashboard", deleted: "Deleted provider “{name}”", deleteFailed: "Could not delete provider" },
   },
   settings: {
+    categories: {
+      general: "General",
+      data: "Data & logs",
+      about: "About",
+    },
     title: "Settings", description: "Appearance, language, local data, and application information.",
     language: { title: "Language", description: "Choose the interface language. System default is selected initially.", label: "Interface language", system: "System default", simplifiedChinese: "简体中文", traditionalChinese: "繁體中文", english: "English", japanese: "日本語" },
     appearance: { title: "Appearance", description: "Choose the interface color theme. System default responds automatically to appearance changes.", label: "Color theme", system: "System default", light: "Light", dark: "Dark" },
     storage: { title: "Local storage", description: "Provider and key metadata is stored here, and application settings are written to settings.json.", loading: "Reading the local data directory", openFailed: "Could not open the local storage location" },
     logs: { title: "Application logs", description: "Local operations and key-check results", loading: "Reading the log directory", clearLogs: "Clear logs", openDirectory: "Open folder", cleared: "Logs cleared", clearFailed: "Could not clear logs", openFailed: "Could not open the log directory", clearDialogTitle: "Clear application logs", clearDialogMessage: "Clear all local application logs? This action cannot be undone." },
-    version: { current: "Current version {version}", checkUpdates: "Check for updates", latest: "You are using the latest version", checkFailed: "Could not check for updates. Try again later.", githubFailed: "Could not open the GitHub repository", releaseFailed: "Could not open the release download page" },
+    version: { github: "GitHub", current: "Current version {version}", checkUpdates: "Check for updates", latest: "You are using the latest version", checkFailed: "Could not check for updates. Try again later.", githubFailed: "Could not open the GitHub repository", releaseFailed: "Could not open the release download page" },
   },
   keyDialog: { unnamed: "Unnamed key", addTitle: "Add API key", editTitle: "Edit API key", remark: "Note", remarkPlaceholder: "For example: Development", key: "API Key", newKey: "New API Key", keyPlaceholder: "Paste API key", saveKey: "Save key", saveChanges: "Save changes", errors: { keyRequired: "Enter an API key", noChanges: "Change the note or enter a new API key" } },
   providerDialog: {

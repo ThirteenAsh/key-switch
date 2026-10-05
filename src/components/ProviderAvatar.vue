@@ -26,7 +26,7 @@ const { t } = useI18n();
   flex: 0 0 38px;
   border-radius: 10px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: none;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -60,19 +60,4 @@ const { t } = useI18n();
   line-height: 1;
 }
 
-.provider-avatar--blue {
-  border-color: var(--border-strong);
-}
-.provider-avatar--violet {
-  border-color: var(--border-strong);
-}
-.provider-avatar--orange {
-  border-color: var(--border-strong);
-}
-.provider-avatar--indigo {
-  border-color: var(--border-strong);
-}
-.provider-avatar--gray {
-  border-color: var(--border-strong);
-}
 </style>

@@ -19,13 +19,14 @@
 </template>
 
 <script setup lang="ts">
+import { version as appVersion } from "../../package.json";
 import { onMounted, ref } from "vue";
 import { LoaderCircle, TriangleAlert } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import { getAppInfo } from "../api/app";
 import { useUpdateStore } from "../stores/update";
 
-const version = ref("v1.0.2");
+const version = ref(`v${appVersion}`);
 const updateStore = useUpdateStore();
 const { t } = useI18n();
 

@@ -67,7 +67,8 @@
 ```json
 {
   "schemaVersion": 1,
-  "localePreference": "system"
+  "localePreference": "system",
+  "themePreference": "system"
 }
 ```
 
@@ -132,6 +133,7 @@
 
 ```bash
 npm run build
+npm run test:frontend
 
 cd src-tauri
 cargo fmt --all -- --check

@@ -1,5 +1,8 @@
 const zhCN = {
   common: {
+    appName: "Key Switch",
+    back: "返回",
+    retry: "重试",
     close: "关闭",
     cancel: "取消",
     save: "保存",
@@ -18,12 +21,19 @@ const zhCN = {
     selectedProviderAvatarAlt: "已选择的供应商头像",
   },
   navigation: {
+    providerList: "供应商列表",
     main: "主导航",
     dashboard: "仪表盘",
     providers: "供应商",
     settings: "设置",
   },
   dashboard: {
+    loading: "正在加载供应商…",
+    loadFailed: "无法加载供应商",
+    keysForProvider: "{name} 的 API Key",
+    keySearchPlaceholder: "搜索 Key 备注或掩码",
+    reorderHelp: "拖动调整顺序，或按 Alt + ↑ / ↓",
+    reorderProvider: "调整 {name} 的顺序",
     title: "仪表盘",
     searchPlaceholder: "搜索供应商或 Key 备注",
     addConfiguration: "新增配置",
@@ -54,6 +64,9 @@ const zhCN = {
     },
     keyDisclosure: "仅显示部分 Key；完整密钥不会在列表中返回。",
     empty: {
+      noKeysTitle: "还没有 API Key",
+      noKeysDescription: "为当前供应商添加一个 Key。",
+      noKeysMatch: "没有找到匹配的 Key",
       noMatchesTitle: "没有找到匹配的供应商或备注",
       noProvidersTitle: "还没有供应商配置",
       noMatchesDescription: "尝试使用其他关键词搜索。",
@@ -112,6 +125,11 @@ const zhCN = {
     },
   },
   settings: {
+    categories: {
+      general: "通用",
+      data: "数据与日志",
+      about: "关于",
+    },
     title: "设置",
     description: "外观、语言、本地数据与应用信息。",
     language: {
@@ -151,6 +169,7 @@ const zhCN = {
       clearDialogMessage: "确定清空全部本地运行日志吗？此操作无法撤销。",
     },
     version: {
+      github: "GitHub",
       current: "当前版本 {version}",
       checkUpdates: "检查更新",
       latest: "当前已是最新版本",

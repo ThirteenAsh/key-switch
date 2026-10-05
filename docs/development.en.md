@@ -34,6 +34,9 @@ Browser mode does not provide Tauri capabilities such as the system credential s
 # Type-check and build the frontend for production
 npm run build
 
+# Frontend navigation and ordering tests
+npm run test:frontend
+
 # Format, compile, and test Rust
 cd src-tauri
 cargo fmt --all -- --check
@@ -43,11 +46,19 @@ cargo test --locked
 
 Changes to frontend/backend contracts, the settings file, or security-sensitive logic must pass both the frontend build and Rust tests before being submitted.
 
+### Versioning and releases
+
+The current application version is `1.1.0`. Version changes must update `package.json`, root package versions in `package-lock.json`, `src-tauri/Cargo.toml`, the application entry in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json` including the Windows WiX version, all four README badges, and the default release workflow tag.
+
+UI fallback versions come from `package.json`; Rust request headers use `CARGO_PKG_VERSION` instead of separate version strings. The running desktop version still comes from Tauri.
+
+CI and release builds use Node.js 22 and run `npm run test:frontend`. The release tag must match the application version. `.github/release-notes.md` contains the current release notes, and the release workflow creates drafts only. Commit, push, tag, and publish actions require explicit release instructions.
+
 ## 4. Architecture and directory responsibilities
 
 | Directory | Responsibility |
 | --- | --- |
-| `src/views/` | Dashboard, provider, and settings pages |
+| `src/views/` | Main page, provider management, and categorized settings pages |
 | `src/components/` | Reusable Vue components, dialogs, and base UI components |
 | `src/api/` | TypeScript types and wrappers for Tauri commands |
 | `src/stores/` | Pinia state, business operations, and the settings persistence queue |
@@ -58,6 +69,18 @@ Changes to frontend/backend contracts, the settings file, or security-sensitive 
 | `docs/` | Development documentation and README assets |
 
 The frontend owns presentation, interaction, and non-sensitive state. Sensitive data, persistent files, external requests, and operating-system capabilities belong on the Rust side. New frontend code should keep the Vue `<script setup lang="ts">` style and complete type definitions.
+
+### Page navigation and ordering
+
+- The sidebar sizes itself using a hidden width guide for built-in Chinese and English names plus CSS inline-size containment; custom long names do not expand it. Both headings share a height. Provider type and platform URL follow the right heading; long URLs truncate with a full tooltip and remain clickable.
+- Provider changes use short fades for the heading and Key content, with a slight content shift. Reduced motion disables fades and shifts. Leaving content ignores pointer interaction. The actions column reserves a fixed width for all four buttons, and masked cells keep table layout.
+- The main page lists providers on the left and the selected provider's Keys on the right. Provider management and settings links sit at the bottom left.
+- Provider selection lives only in the current Pinia session, without new data files or settings fields. The sidebar has no provider search and always shows the full list. The first provider is the default and the fallback when the selected provider is deleted. Key search terms live only in the page component.
+- Sidebar ordering reuses pointer capture, the 4px activation threshold, and FLIP drop animations. The drag handle also supports `Alt + ↑ / ↓`; reduced motion skips drop animations.
+- Ordering uses the existing `reorder_providers` command with the complete ID list. Further reordering is disabled while saving; failures restore the previous order and display a translated error.
+- `/settings` redirects to `/settings/general`. Existing settings are grouped into General (language, appearance), Data & logs (storage directory, logs), and About (version, repository, updates), at `/settings/general`, `/settings/data`, and `/settings/about`. Back returns to the main page.
+- Version and update installation status appear at the bottom of the sidebar. Settings continue using the existing Store queue; Rust contracts and runtime data structures are unchanged.
+- Settings category pages share the main page heading height, text and icon sizes, with compact controls. Bottom sidebar navigation wraps when space is limited and preserves full labels in every language.
 
 ## 5. Local data and application settings
 

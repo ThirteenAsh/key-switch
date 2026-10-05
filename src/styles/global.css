@@ -1,4 +1,5 @@
 :root {
+  --app-heading-height: 64px;
   --surface-app: #f8fafc;
   --surface-sidebar: transparent;
   --surface-card: transparent;
@@ -123,7 +124,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 /* 页面整体架构：统一软件背景 */
 .app-shell {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 46px;
+  grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   min-height: 520px;
   background: var(--surface-app);
@@ -138,8 +139,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .app-body {
   display: grid;
-  /* 默认窗口较窄，侧栏只保留导航所需宽度，把空间留给 Key 表格。 */
-  grid-template-columns: 172px minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
   min-height: 0;
   background: transparent;
 }
@@ -174,7 +174,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .dashboard-view, .providers-view, .settings-view {
-  max-width: 980px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 24px 28px 36px;
   background: transparent;
@@ -189,14 +189,16 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   margin-bottom: 18px;
 }
 
-/* 首页和供应商页的标题栏在内容滚动时始终保持可见。 */
+/* 页面标题栏在内容滚动时始终保持可见。 */
 .dashboard-view,
-.providers-view {
+.providers-view,
+.settings-view {
   padding-top: 0;
 }
 
 .dashboard-view .view-toolbar,
-.providers-view .view-toolbar {
+.providers-view .view-toolbar,
+.settings-view .view-toolbar {
   position: sticky;
   z-index: 10;
   top: 0;
@@ -913,9 +915,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 /* 响应式 */
 @media (max-width: 860px) {
-  .app-body {
-    grid-template-columns: 156px minmax(0, 1fr);
-  }
   .search-field {
     width: 200px;
   }

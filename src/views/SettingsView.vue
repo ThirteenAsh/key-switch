@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { version as appVersion } from "../../package.json";
 import { computed, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { useRoute } from "vue-router";
+import { settingsNavigation } from "../data/settingsNavigation";
 import { FileClock, FolderOpen, Languages, Palette, RefreshCw, Trash2 } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -19,8 +22,10 @@ import { isLocalePreference } from "../i18n/locale";
 import { translateAppError } from "../i18n/errors";
 
 const { t } = useI18n();
+const route = useRoute();
+const category = computed(() => settingsNavigation.find((item) => item.id === route.meta.settingsCategory) ?? settingsNavigation[0]);
 const dataDirectory = ref("");
-const version = ref("v1.0.2");
+const version = ref(`v${appVersion}`);
 const notice = ref("");
 const clearLogDialogOpen = ref(false);
 const checkingForUpdates = ref(false);
@@ -141,12 +146,11 @@ onMounted(async () => {
   <section class="settings-view">
     <div class="view-toolbar">
       <div>
-        <h1>{{ t("settings.title") }}</h1>
-        <p class="view-description">{{ t("settings.description") }}</p>
+        <h1 class="settings-page-title"><component :is="category.icon" :size="24" aria-hidden="true" />{{ t(category.labelKey) }}</h1>
       </div>
     </div>
     <div class="settings-stack">
-      <article class="settings-card settings-card--select">
+      <article v-if="category.id === 'general'" class="settings-card settings-card--select">
         <div class="settings-heading">
           <Languages :size="18" :stroke-width="1.8" />
           <div>
@@ -156,6 +160,7 @@ onMounted(async () => {
         </div>
         <div class="settings-value">
           <AppSelect
+            full-width
             :model-value="localePreference"
             :options="languageOptions"
             :label="t('settings.language.label')"
@@ -164,7 +169,7 @@ onMounted(async () => {
         </div>
       </article>
 
-      <article class="settings-card settings-card--select">
+      <article v-if="category.id === 'general'" class="settings-card settings-card--select">
         <div class="settings-heading">
           <Palette :size="18" :stroke-width="1.8" />
           <div>
@@ -174,6 +179,7 @@ onMounted(async () => {
         </div>
         <div class="settings-value">
           <AppSelect
+            full-width
             :model-value="themePreference"
             :options="themeOptions"
             :label="t('settings.appearance.label')"
@@ -182,7 +188,7 @@ onMounted(async () => {
         </div>
       </article>
 
-      <article class="settings-card">
+      <article v-if="category.id === 'data'" class="settings-card">
         <div class="settings-heading">
           <FolderOpen :size="18" :stroke-width="1.8" />
           <div>
@@ -196,7 +202,7 @@ onMounted(async () => {
         </div>
       </article>
 
-      <article class="settings-card">
+      <article v-if="category.id === 'data'" class="settings-card">
         <div class="settings-heading">
           <FileClock :size="18" :stroke-width="1.8" />
           <div>
@@ -218,18 +224,18 @@ onMounted(async () => {
         </div>
       </article>
 
-      <article class="settings-card settings-card--version">
+      <article v-if="category.id === 'about'" class="settings-card settings-card--version">
         <div class="settings-heading">
-          <img :src="appIcon" class="settings-app-icon" alt="Key Switch" />
+          <img :src="appIcon" class="settings-app-icon" :alt="t('common.appName')" />
           <div>
-            <h2>Key Switch</h2>
+            <h2>{{ t("common.appName") }}</h2>
             <p>{{ t("settings.version.current", { version }) }}</p>
           </div>
         </div>
         <div class="settings-version-actions">
           <AppButton variant="secondary" size="sm" @click="openGithub">
             <img :src="githubIcon" class="button-github-icon" alt="" />
-            GitHub
+            {{ t("settings.version.github") }}
           </AppButton>
           <AppButton variant="primary" size="sm" :loading="checkingForUpdates" @click="checkForUpdates">
             <RefreshCw :size="14" :stroke-width="2" />
@@ -257,3 +263,23 @@ onMounted(async () => {
     />
   </section>
 </template>
+
+<style scoped>
+.settings-view .view-toolbar { min-height: var(--app-heading-height); padding: 0; margin-bottom: 16px; }
+.settings-page-title { display: flex; align-items: center; gap: 9px; font-size: 14px; line-height: 1.4; font-weight: 600; }
+.settings-page-title svg { width: 24px; height: 24px; padding: 3px; flex-shrink: 0; }
+.settings-stack { max-width: none; padding-top: 0; }
+.settings-card { min-height: 72px; padding: 16px; gap: 16px; flex-wrap: wrap; }
+.settings-heading { flex: 1 1 200px; min-width: 0; gap: 9px; }
+.settings-heading > div { min-width: 0; }
+.settings-heading svg { flex: 0 0 20px; width: 20px; height: 20px; padding: 2px; }
+.settings-heading h2 { font-size: 12.5px; }
+.settings-heading p { font-size: 11.5px; line-height: 1.6; overflow-wrap: anywhere; }
+.settings-app-icon { width: 24px; height: 24px; flex-basis: 24px; }
+.settings-value { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+.settings-value code { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.settings-card--select .settings-value { width: 190px; max-width: 100%; }
+.settings-value :deep(.app-select__trigger) { height: 36px; font-size: 12.5px; }
+.settings-value :deep(.app-select__option) { min-height: 34px; font-size: 12.5px; }
+.settings-version-actions, .settings-log-actions { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+</style>
