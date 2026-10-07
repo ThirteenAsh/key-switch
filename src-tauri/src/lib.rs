@@ -1,3 +1,6 @@
+mod diagnostics;
+mod update_network;
+
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -13,6 +16,7 @@ use std::{
 use tauri::Manager;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_updater::UpdaterExt;
+use update_network::{NetworkMode, UpdateRequest, DOWNLOAD_TIMEOUT, MANIFEST_TIMEOUT};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,9 +34,13 @@ struct CommandError {
 
 impl CommandError {
     fn from_message(message: &str) -> Self {
-        Self {
-            code: command_error_code(message),
-        }
+        let code = command_error_code(message);
+        diagnostics::record(
+            "ERROR",
+            "native_command_failed",
+            &format!("code={code} detail={message}"),
+        );
+        Self { code }
     }
 }
 
@@ -304,6 +312,8 @@ struct UpdateInfo {
     prerelease: bool,
     published_at: Option<String>,
     release_tag: String,
+    network_mode: NetworkMode,
+    operation_id: String,
 }
 
 #[derive(Deserialize)]
@@ -445,16 +455,11 @@ fn now() -> String {
         .to_string()
 }
 const KEYRING_SERVICE: &str = "com.app.key-switch";
-const LOG_FILE_NAME: &str = "key-switch.log";
-const LOG_BACKUP_FILE_NAME: &str = "key-switch.log.1";
 const SETTINGS_FILE_NAME: &str = "settings.json";
 const SETTINGS_BACKUP_FILE_NAME: &str = "settings.json.bak";
 const SETTINGS_TEMP_FILE_NAME: &str = "settings.json.tmp";
 const SETTINGS_SCHEMA_VERSION: u32 = 1;
-const MAX_LOG_FILE_SIZE: u64 = 1024 * 1024;
-const MAX_CLIENT_LOG_DETAIL_CHARS: usize = 2400;
 const AUTOMATIC_UPDATES_ENABLED: bool = true;
-static LOG_LOCK: Mutex<()> = Mutex::new(());
 static SETTINGS_LOCK: Mutex<()> = Mutex::new(());
 
 fn data_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -588,40 +593,13 @@ fn log_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .join("logs"))
 }
 
-fn log_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(log_directory(app)?.join(LOG_FILE_NAME))
-}
-
 fn append_log(
     app: &tauri::AppHandle,
     level: &str,
     event: &str,
     detail: &str,
 ) -> Result<(), String> {
-    let _guard = LOG_LOCK
-        .lock()
-        .map_err(|_| "日志写入锁不可用".to_string())?;
-    let directory = log_directory(app)?;
-    fs::create_dir_all(&directory).map_err(|e| format!("无法创建日志目录：{e}"))?;
-    let file = log_file(app)?;
-
-    if file.metadata().map(|metadata| metadata.len()).unwrap_or(0) >= MAX_LOG_FILE_SIZE {
-        let backup = directory.join(LOG_BACKUP_FILE_NAME);
-        if backup.exists() {
-            fs::remove_file(&backup).map_err(|e| format!("无法轮转旧日志：{e}"))?;
-        }
-        fs::rename(&file, backup).map_err(|e| format!("无法轮转日志：{e}"))?;
-    }
-
-    let mut output = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(file)
-        .map_err(|e| format!("无法打开日志文件：{e}"))?;
-    writeln!(output, "{} [{}] {} {}", now(), level, event, detail)
-        .and_then(|_| output.flush())
-        .and_then(|_| output.sync_data())
-        .map_err(|e| format!("无法写入日志：{e}"))
+    diagnostics::write(&log_directory(app)?, level, event, detail)
 }
 
 fn valid_client_log_level(level: &str) -> bool {
@@ -637,11 +615,7 @@ fn valid_client_log_event(event: &str) -> bool {
 }
 
 fn sanitize_client_log_detail(detail: &str) -> String {
-    detail
-        .chars()
-        .filter(|character| !character.is_control() || *character == '\t')
-        .take(MAX_CLIENT_LOG_DETAIL_CHARS)
-        .collect()
+    diagnostics::sanitize(detail)
 }
 
 fn open_directory(directory: PathBuf) -> Result<(), String> {
@@ -1044,28 +1018,46 @@ async fn validate_key(
     client: &reqwest::Client,
     spec: &KeyValidationSpec,
     value: &str,
+    provider_id: &str,
+    key_id: &str,
 ) -> ValidationOutcome {
+    let started = std::time::Instant::now();
     let request = match build_validation_request(client, spec, value) {
         Ok(request) => request,
         Err(()) => {
+            diagnostics::record(
+                "WARN",
+                "api_key_validation_failed",
+                &format!("provider_id={provider_id} key_id={key_id} reason=endpointInvalid"),
+            );
             return ValidationOutcome {
                 status: "error",
                 error_code: Some("endpointInvalid"),
-            }
+            };
         }
     };
-
-    match client.execute(request).await {
-        Ok(response) => classify_validation_status(response.status()),
-        Err(error) => ValidationOutcome {
-            status: "error",
-            error_code: Some(if error.is_timeout() {
+    let (outcome, detail) = match client.execute(request).await {
+        Ok(response) => (
+            classify_validation_status(response.status()),
+            format!("http_status={}", response.status().as_u16()),
+        ),
+        Err(error) => {
+            let code = if error.is_timeout() {
                 "timeout"
             } else {
                 "network"
-            }),
-        },
-    }
+            };
+            (
+                ValidationOutcome {
+                    status: "error",
+                    error_code: Some(code),
+                },
+                format!("reason={code} cause={:?}", error.without_url()),
+            )
+        }
+    };
+    diagnostics::record(if outcome.status == "error" { "WARN" } else { "INFO" }, "api_key_validation_completed", &format!("provider_id={provider_id} key_id={key_id} status={} error_code={} elapsed_ms={} {detail}", outcome.status, outcome.error_code.unwrap_or("none"), started.elapsed().as_millis()));
+    outcome
 }
 
 #[cfg(test)]
@@ -1359,7 +1351,12 @@ fn get_app_info(app: tauri::AppHandle) -> Result<AppInfo, CommandError> {
 }
 
 #[tauri::command]
-async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, CommandError> {
+async fn check_for_updates(
+    app: tauri::AppHandle,
+    network_mode: Option<NetworkMode>,
+    operation_id: Option<String>,
+) -> Result<Option<UpdateInfo>, CommandError> {
+    let request = UpdateRequest::new(network_mode, operation_id, "check");
     const RELEASES_API: &str =
         "https://api.github.com/repos/ThirteenAsh/key-switch/releases?per_page=20";
     const RELEASE_URL_PREFIX: &str = "https://github.com/ThirteenAsh/key-switch/releases/";
@@ -1368,10 +1365,20 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
     let current_version_text = app.package_info().version.to_string();
     let current_version =
         SemVersion::parse(&current_version_text).ok_or("当前应用版本不符合 SemVer 规范")?;
-    let client = reqwest::Client::builder()
+    let endpoint =
+        reqwest::Url::parse(RELEASES_API).map_err(|e| format!("无法生成更新清单地址：{e}"))?;
+    request.log(
+        "INFO",
+        "check",
+        "request",
+        &format!(
+            "proxy_source={} host=api.github.com current_version={current_version_text}",
+            request.proxy_source(&endpoint)
+        ),
+    );
+    let client = request
+        .configure(reqwest::Client::builder())
         .timeout(Duration::from_secs(12))
-        .connect_timeout(Duration::from_secs(5))
-        .redirect(reqwest::redirect::Policy::limited(3))
         .user_agent(concat!(
             "Key-Switch-Update-Check/",
             env!("CARGO_PKG_VERSION")
@@ -1384,19 +1391,42 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await
-        .map_err(|e| format!("无法连接 GitHub Releases：{e}"))?;
+        .map_err(|e| request.network_error("check", &endpoint, "UPDATE_CHECK_FAILED", &e))?;
+    request.log(
+        "INFO",
+        "check",
+        "response",
+        &format!("status={}", response.status().as_u16()),
+    );
     if !response.status().is_success() {
-        return Err(format!("GitHub Releases 返回异常状态：{}", response.status()).into());
+        return Err(request.error(
+            "check",
+            response.url(),
+            "UPDATE_CHECK_FAILED",
+            true,
+            &format!("status={}", response.status().as_u16()),
+        ));
     }
     if response.content_length().unwrap_or(0) > MAX_RESPONSE_SIZE as u64 {
         return Err("GitHub Releases 响应过大".into());
     }
-    let body = response
-        .bytes()
+    let mut response = response;
+    let mut body = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
         .await
-        .map_err(|e| format!("无法读取 GitHub Releases 响应：{e}"))?;
-    if body.len() > MAX_RESPONSE_SIZE {
-        return Err("GitHub Releases 响应过大".into());
+        .map_err(|e| request.network_error("check", &endpoint, "UPDATE_CHECK_FAILED", &e))?
+    {
+        if body.len() + chunk.len() > MAX_RESPONSE_SIZE {
+            return Err(request.error(
+                "check",
+                &endpoint,
+                "UPDATE_RESPONSE_TOO_LARGE",
+                false,
+                "reason=response_size_limit",
+            ));
+        }
+        body.extend_from_slice(&chunk);
     }
     let releases: Vec<GithubRelease> =
         serde_json::from_slice(&body).map_err(|e| format!("GitHub Releases 数据格式错误：{e}"))?;
@@ -1413,7 +1443,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         .max_by(|(_, left), (_, right)| left.cmp(right));
 
     let Some((release, _)) = candidate else {
-        let _ = append_log(&app, "INFO", "update_checked", "available=false");
+        request.log("INFO", "check", "completed", "available=false");
         return Ok(None);
     };
     let notes = release
@@ -1435,23 +1465,31 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, 
         prerelease: release.prerelease,
         published_at: release.published_at,
         release_tag: release.tag_name,
+        network_mode: request.mode,
+        operation_id: request.id.clone(),
     };
-    let _ = append_log(&app, "INFO", "update_checked", "available=true");
+    request.log(
+        "INFO",
+        "check",
+        "completed",
+        &format!("available=true target_version={}", update.latest_version),
+    );
     Ok(Some(update))
 }
 
 #[tauri::command]
-async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<(), CommandError> {
-    const RELEASE_TAG_PREFIX: &str = "v";
-    const LEGACY_RELEASE_TAG_PREFIX: &str = "app-v";
-    const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(90);
-
+async fn install_update(
+    app: tauri::AppHandle,
+    release_tag: String,
+    network_mode: Option<NetworkMode>,
+    operation_id: Option<String>,
+) -> Result<(), CommandError> {
+    let request = UpdateRequest::new(network_mode, operation_id, "manifest");
     let tag_is_safe = release_tag.len() <= 64
         && release_tag
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '-'))
-        && (release_tag.starts_with(RELEASE_TAG_PREFIX)
-            || release_tag.starts_with(LEGACY_RELEASE_TAG_PREFIX));
+        && (release_tag.starts_with('v') || release_tag.starts_with("app-v"));
     if !tag_is_safe {
         return Err("更新版本标签无效".into());
     }
@@ -1460,55 +1498,136 @@ async fn install_update(app: tauri::AppHandle, release_tag: String) -> Result<()
         "https://github.com/ThirteenAsh/key-switch/releases/download/{release_tag}/latest.json"
     ))
     .map_err(|e| format!("无法生成更新清单地址：{e}"))?;
+    request.log(
+        "INFO",
+        "manifest",
+        "request",
+        &format!(
+            "tag={release_tag} proxy_source={} host=github.com",
+            request.proxy_source(&endpoint)
+        ),
+    );
+    let mode = request.mode;
     let updater = app
         .updater_builder()
-        .endpoints(vec![endpoint])
+        .endpoints(vec![endpoint.clone()])
         .map_err(|e| format!("无法配置更新端点：{e}"))?
-        // 单个 HTTP 请求的上限略高于业务层总超时，由业务层统一返回可识别的超时错误。
-        .timeout(Duration::from_secs(120))
+        .configure_client(move |builder| {
+            let builder = builder
+                .connect_timeout(Duration::from_secs(5))
+                .timeout(DOWNLOAD_TIMEOUT)
+                .redirect(reqwest::redirect::Policy::limited(5));
+            if mode == NetworkMode::Direct {
+                builder.no_proxy()
+            } else {
+                builder
+            }
+        })
         .build()
         .map_err(|e| format!("无法初始化自动更新：{e}"))?;
-    let update = tokio::time::timeout(DOWNLOAD_TIMEOUT, updater.check())
+    let update = tokio::time::timeout(MANIFEST_TIMEOUT, updater.check())
         .await
         .map_err(|_| {
-            let _ = append_log(
-                &app,
-                "WARN",
-                "update_manifest_timeout",
-                "timeout_seconds=90",
-            );
-            "更新下载超时，请检查网络后重试".to_string()
+            request.error(
+                "manifest",
+                &endpoint,
+                "UPDATE_DOWNLOAD_TIMEOUT",
+                true,
+                "reason=timeout timeout_seconds=15",
+            )
         })?
-        .map_err(|e| format!("无法读取签名更新清单：{e}"))?
+        .map_err(|e| request.updater_error("manifest", &endpoint, "UPDATE_MANIFEST_FAILED", &e))?
         .ok_or("该 Release 没有可安装的更新")?;
     let manifest_version =
         SemVersion::parse(&update.version).ok_or("签名更新清单中的版本不符合 SemVer 规范")?;
     if manifest_version != expected_version {
         return Err("Release 标签与签名更新清单版本不一致".into());
     }
-
-    let _ = append_log(
-        &app,
+    let download_url = &update.download_url;
+    if download_url.scheme() != "https"
+        || !matches!(
+            download_url.host_str(),
+            Some(
+                "github.com"
+                    | "api.github.com"
+                    | "release-assets.githubusercontent.com"
+                    | "objects.githubusercontent.com"
+            )
+        )
+    {
+        return Err(request.error(
+            "manifest",
+            &endpoint,
+            "UPDATE_DATA_INVALID",
+            false,
+            "reason=untrusted_download_host",
+        ));
+    }
+    request.log(
         "INFO",
-        "update_install_started",
-        "signature_check=pending",
+        "manifest",
+        "completed",
+        &format!("target_version={}", update.version),
     );
-    let update_bytes = tokio::time::timeout(DOWNLOAD_TIMEOUT, update.download(|_, _| {}, || {}))
-        .await
-        .map_err(|_| {
-            let _ = append_log(
-                &app,
-                "WARN",
-                "update_download_timeout",
-                "timeout_seconds=90",
-            );
-            "更新下载超时，请检查网络后重试".to_string()
-        })?
-        .map_err(|e| format!("更新下载或签名验证失败：{e}"))?;
+    request.log(
+        "INFO",
+        "download",
+        "started",
+        &format!(
+            "host={} proxy_source={} signature_check=pending",
+            download_url.host_str().unwrap_or("unknown"),
+            request.proxy_source(download_url)
+        ),
+    );
+    const MAX_DOWNLOAD_SIZE: u64 = 256 * 1024 * 1024;
+    let limit_reached = tokio::sync::Notify::new();
+    let mut downloaded = 0u64;
+    let mut logged = 0u64;
+    let download = update.download(
+        |chunk, total| {
+            downloaded += chunk as u64;
+            if downloaded > MAX_DOWNLOAD_SIZE || total.is_some_and(|size| size > MAX_DOWNLOAD_SIZE)
+            {
+                limit_reached.notify_one();
+            }
+            if downloaded - logged >= 2 * 1024 * 1024 {
+                logged = downloaded;
+                request.log(
+                    "INFO",
+                    "download",
+                    "progress",
+                    &format!("bytes={downloaded} total={}", total.unwrap_or(0)),
+                );
+            }
+        },
+        || {},
+    );
+    let update_bytes = tokio::time::timeout(DOWNLOAD_TIMEOUT, async {
+        tokio::select! {
+            biased;
+            _ = limit_reached.notified() => Err(request.error("download", download_url, "UPDATE_RESPONSE_TOO_LARGE", false, "reason=download_size_limit")),
+            result = download => result.map_err(|e| request.updater_error("download", download_url, "UPDATE_DOWNLOAD_FAILED", &e)),
+        }
+    }).await.map_err(|_| request.error("download", download_url, "UPDATE_DOWNLOAD_TIMEOUT", true, "reason=timeout timeout_seconds=300"))??;
+    if update_bytes.len() as u64 > MAX_DOWNLOAD_SIZE {
+        return Err(request.error(
+            "download",
+            download_url,
+            "UPDATE_RESPONSE_TOO_LARGE",
+            false,
+            "reason=download_size_limit",
+        ));
+    }
+    request.log(
+        "INFO",
+        "download",
+        "completed",
+        &format!("bytes={} signature_check=passed", update_bytes.len()),
+    );
     update
         .install(update_bytes)
-        .map_err(|e| format!("更新安装失败：{e}"))?;
-    let _ = append_log(&app, "INFO", "update_installed", "restart=pending");
+        .map_err(|e| request.updater_error("install", download_url, "UPDATE_INSTALL_FAILED", &e))?;
+    request.log("INFO", "install", "completed", "restart=pending");
     app.restart();
 }
 #[tauri::command]
@@ -1544,18 +1663,7 @@ fn write_client_log(app: tauri::AppHandle, input: ClientLogInput) -> Result<(), 
 
 #[tauri::command]
 fn clear_logs(app: tauri::AppHandle) -> Result<(), CommandError> {
-    let _guard = LOG_LOCK
-        .lock()
-        .map_err(|_| "日志写入锁不可用".to_string())?;
-    let directory = log_directory(&app)?;
-    fs::create_dir_all(&directory).map_err(|e| format!("无法创建日志目录：{e}"))?;
-    for file_name in [LOG_FILE_NAME, LOG_BACKUP_FILE_NAME] {
-        let file = directory.join(file_name);
-        if file.exists() {
-            fs::remove_file(file).map_err(|e| format!("无法清空日志：{e}"))?;
-        }
-    }
-    Ok(())
+    diagnostics::clear(&log_directory(&app)?).map_err(CommandError::from)
 }
 #[tauri::command]
 fn list_providers(app: tauri::AppHandle) -> Result<Vec<ProviderSummary>, CommandError> {
@@ -1765,7 +1873,13 @@ fn update_api_key(
     };
 
     if let Err(error) = save_data(&app, &data) {
-        let _ = entry.set_password(&previous_value);
+        if entry.set_password(&previous_value).is_err() {
+            diagnostics::record(
+                "ERROR",
+                "credential_rollback_failed",
+                "reason=keyring_write_failed",
+            );
+        }
         return Err(error.into());
     }
 
@@ -1822,6 +1936,11 @@ async fn check_provider_keys(
         .find(|p| p.id == provider_id)
         .ok_or("未找到供应商")?;
     let Some(validation_spec) = key_validation_spec(provider) else {
+        diagnostics::record(
+            "INFO",
+            "api_key_validation_skipped",
+            &format!("provider_id={provider_id} reason=unsupported"),
+        );
         for key in &mut provider.keys {
             key.status = "unsupported".into();
             key.check_error_code = None;
@@ -1837,6 +1956,11 @@ async fn check_provider_keys(
     let resolved = match resolve_validation_endpoint(&validation_spec).await {
         Ok(resolved) => resolved,
         Err(error_code) => {
+            diagnostics::record(
+                "WARN",
+                "api_key_validation_failed",
+                &format!("provider_id={provider_id} stage=resolve reason={error_code}"),
+            );
             for key in &mut provider.keys {
                 key.status = "error".into();
                 key.check_error_code = Some(error_code.into());
@@ -1853,7 +1977,7 @@ async fn check_provider_keys(
     let client = validation_client(&resolved)?;
     for key in &mut provider.keys {
         let value = key_value(key)?;
-        let outcome = validate_key(&client, &validation_spec, &value).await;
+        let outcome = validate_key(&client, &validation_spec, &value, &provider_id, &key.id).await;
         key.status = outcome.status.into();
         key.check_error_code = outcome.error_code.map(str::to_string);
     }
@@ -1900,6 +2024,11 @@ async fn check_api_key(
         .find(|key| key.id == key_id)
         .ok_or("未找到 API Key")?;
     let Some(validation_spec) = validation_spec else {
+        diagnostics::record(
+            "INFO",
+            "api_key_validation_skipped",
+            &format!("provider_id={provider_id} reason=unsupported"),
+        );
         key.status = "unsupported".into();
         key.check_error_code = None;
         let result = key_summary(key)?;
@@ -1909,6 +2038,11 @@ async fn check_api_key(
     let resolved = match resolve_validation_endpoint(&validation_spec).await {
         Ok(resolved) => resolved,
         Err(error_code) => {
+            diagnostics::record(
+                "WARN",
+                "api_key_validation_failed",
+                &format!("provider_id={provider_id} stage=resolve reason={error_code}"),
+            );
             key.status = "error".into();
             key.check_error_code = Some(error_code.into());
             let result = key_summary(key)?;
@@ -1918,7 +2052,7 @@ async fn check_api_key(
     };
     let value = key_value(key)?;
     let client = validation_client(&resolved)?;
-    let outcome = validate_key(&client, &validation_spec, &value).await;
+    let outcome = validate_key(&client, &validation_spec, &value, &provider_id, &key.id).await;
     key.status = outcome.status.into();
     key.check_error_code = outcome.error_code.map(str::to_string);
     let result = ApiKeySummary {
@@ -1941,6 +2075,7 @@ async fn check_api_key(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    diagnostics::install_panic_hook();
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init());
@@ -1949,7 +2084,16 @@ pub fn run() {
     }
     builder
         .setup(|app| {
-            let _ = append_log(app.handle(), "INFO", "application_started", "success");
+            match log_directory(app.handle()) {
+                Ok(directory) => {
+                    diagnostics::init(directory, &app.package_info().version.to_string())
+                }
+                Err(_) => diagnostics::record(
+                    "ERROR",
+                    "logging_unavailable",
+                    "reason=data_directory_unavailable",
+                ),
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1975,5 +2119,8 @@ pub fn run() {
             check_provider_keys
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|error| {
+            diagnostics::record("ERROR", "application_failed", &format!("cause={error:?}"));
+            std::process::exit(1);
+        });
 }

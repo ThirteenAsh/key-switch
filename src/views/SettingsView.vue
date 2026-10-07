@@ -14,7 +14,7 @@ import AppSelect from "../components/ui/AppSelect.vue";
 import type { AppSelectOption } from "../components/ui/AppSelect.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import UpdateAvailableDialog from "../components/UpdateAvailableDialog.vue";
-import { checkForAppUpdates, clearLogs, getAppInfo, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
+import { clearLogs, getAppInfo, openDataDirectory as openAppDataDirectory, openLogDirectory as openAppLogDirectory } from "../api/app";
 import type { UpdateInfo } from "../api/app";
 import { useUpdateStore } from "../stores/update";
 import { isThemePreference, useSettingsStore } from "../stores/settings";
@@ -28,11 +28,10 @@ const dataDirectory = ref("");
 const version = ref(`v${appVersion}`);
 const notice = ref("");
 const clearLogDialogOpen = ref(false);
-const checkingForUpdates = ref(false);
 const availableUpdate = ref<UpdateInfo | null>(null);
 const updateStore = useUpdateStore();
 const settingsStore = useSettingsStore();
-const { installing: installingUpdate } = storeToRefs(updateStore);
+const { installing: installingUpdate, checking: checkingForUpdates, busy: updateBusy } = storeToRefs(updateStore);
 const { localePreference, themePreference } = storeToRefs(settingsStore);
 const languageOptions = computed<AppSelectOption[]>(() => [
   { value: "system", label: t("settings.language.system") },
@@ -94,17 +93,16 @@ async function openGithub() {
 }
 
 async function checkForUpdates() {
-  if (checkingForUpdates.value) return;
-  checkingForUpdates.value = true;
+  if (updateBusy.value) return;
   try {
-    const update = await checkForAppUpdates();
+    const update = await updateStore.check();
+    if (update === undefined) return;
     if (!update) {
       notify(t("settings.version.latest"));
       return;
     }
     availableUpdate.value = update;
   } catch (error) { notify(translateAppError(error, "settings.version.checkFailed")); }
-  finally { checkingForUpdates.value = false; }
 }
 
 async function openUpdateRelease() {
@@ -125,9 +123,9 @@ function closeUpdateDialog() {
 
 async function installAvailableUpdate() {
   if (!availableUpdate.value || installingUpdate.value) return;
-  const releaseTag = availableUpdate.value.releaseTag;
+  const update = availableUpdate.value;
   availableUpdate.value = null;
-  void updateStore.install(releaseTag).catch(() => {});
+  void updateStore.install(update).catch(() => {});
 }
 
 onMounted(async () => {
@@ -237,7 +235,7 @@ onMounted(async () => {
             <img :src="githubIcon" class="button-github-icon" alt="" />
             {{ t("settings.version.github") }}
           </AppButton>
-          <AppButton variant="primary" size="sm" :loading="checkingForUpdates" @click="checkForUpdates">
+          <AppButton variant="primary" size="sm" :loading="checkingForUpdates" :disabled="updateBusy" @click="checkForUpdates">
             <RefreshCw :size="14" :stroke-width="2" />
             {{ t("settings.version.checkUpdates") }}
           </AppButton>

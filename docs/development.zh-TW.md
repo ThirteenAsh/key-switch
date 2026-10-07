@@ -34,7 +34,7 @@ npm run dev
 # 前端型別檢查與生產建置
 npm run build
 
-# 前端導覽與排序測試
+# 前端導覽、更新互動與日誌測試
 npm run test:frontend
 
 # Rust 格式、編譯與測試
@@ -42,13 +42,14 @@ cd src-tauri
 cargo fmt --all -- --check
 cargo check --locked
 cargo test --locked
+cargo clippy --all-targets --all-features --locked -- -D warnings
 ```
 
 提交涉及前後端協定、設定檔或安全邏輯的變更前，必須同時執行前端建置與 Rust 測試。
 
 ### 版本與發布
 
-目前應用程式版本為 `1.1.0`。更新版本時同步 `package.json`、`package-lock.json` 根套件版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的應用套件版本、`src-tauri/tauri.conf.json` 及 Windows WiX 版本，並更新四份 README 版本徽章與發布流程預設標籤。
+目前應用程式版本為 `1.1.1`。更新版本時同步 `package.json`、`package-lock.json` 根套件版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的應用套件版本、`src-tauri/tauri.conf.json` 及 Windows WiX 版本，並更新四份 README 版本徽章與發布流程預設標籤。
 
 介面版本回退值讀取 `package.json`，Rust 請求標頭使用 `CARGO_PKG_VERSION`；不再個別維護版本字串。實際桌面版本仍以 Tauri 回傳的資訊為準。
 
@@ -79,7 +80,7 @@ CI 與發布建置使用 Node.js 22，執行 `npm run test:frontend`。發布標
 - 左側供應商排序沿用指標捕獲、4px 啟動門檻與 FLIP 落位動畫，並支援在拖曳手柄上使用 `Alt + ↑ / ↓` 調整順序。減少動畫模式略過落位動畫。
 - 排序仍透過既有 `reorder_providers` 命令儲存完整 ID 順序；儲存期間禁止重複排序，失敗時恢復原順序並顯示翻譯後的錯誤。
 - `/settings` 預設進入 `/settings/general`。設定依現有功能分為一般（語言、外觀）、資料與日誌（儲存目錄、日誌）、關於（版本、儲存庫、更新），分別對應 `/settings/general`、`/settings/data`、`/settings/about`；返回按鈕回到主頁面。
-- 版本與更新安裝狀態顯示於側欄底部；設定儲存仍使用既有 Store 佇列，Rust 協定與執行階段資料結構保持不變。
+- 版本與更新安裝狀態顯示於側欄底部；設定儲存仍使用既有 Store 佇列，設定與業務資料檔結構保持不變；更新命令新增僅本次生效的連線模式與操作 ID。
 - 設定分類頁沿用主頁面的標題高度、文字與圖示尺寸，控制項維持緊湊。側欄底部導覽在剩餘寬度不足時自動換行，完整保留各語言的標籤。
 
 ## 5. 本機資料與設定
@@ -132,7 +133,17 @@ CI 與發布建置使用 Node.js 22，執行 `npm run test:frontend`。發布標
 
 前端透過 `settingsStore.updateSettings()` 合併局部修改，但每次傳送與寫入的是完整設定物件。只新增帶有預設值的相容欄位時，可以保留目前的 `schemaVersion`；刪除欄位、修改型別或改變含義時，必須提升版本並實作舊版本遷移。不能只修改版本數字，目前實作會拒絕不支援的版本。
 
-記錄行為：Rust 側業務事件寫入 `logs/key-switch.log`，檔案達到 1 MB 時保留一個輪替備份；前端透過統一記錄命令回報 Vue 執行期例外、未處理的 Promise rejection、資源錯誤和 Tauri 命令失敗。前端記錄只接受白名單等級與事件名稱，詳細內容會移除換行、截斷並遮蓋常見憑據欄位。使用者可從設定頁開啟記錄目錄進行排查。
+日誌行為：Rust 事件寫入 `logs/key-switch.log`，每個檔案達到 1 MB 時輪轉，保留 3 個備份；清除日誌會移除全部備份。新記錄使用含時區的 RFC 3339 時間，附帶工作階段 ID、處理程序 ID；啟動包含版本、系統與架構。Rust 命令原始錯誤經遮蔽後記錄，介面仍只接收穩定錯誤碼。更新包含操作 ID、階段、代理來源、耗時、位元組數與簽章結果；Key 檢查包含非敏感 ID、HTTP 狀態與失敗分類，也記錄 DNS 解析提前返回的失敗。不得記錄完整 Key、憑據、URL 路徑/查詢參數或回應本文。
+
+前端繼續捕捉 Vue 錯誤、未處理的 Promise 拒絕和資源載入失敗，資源錯誤使用捕獲階段監聽。Rust 入口統一遮蔽與截斷；寫入失敗輸出已遮蔽的標準錯誤備用記錄，前端只輸出一次不含詳情的警告。Rust panic 只記錄位置，不記錄可能含使用者資料的 payload；強制終止處理程序不保證有最後一筆記錄。
+
+### 更新連線與直接連線確認
+
+- 版本檢查、清單及安裝包預設讀取代理環境變數與支援的系統代理，遵循 `NO_PROXY`；環境變數優先。Windows 支援手動代理，PAC 自動設定不在此實作範圍內。
+- 代理網路、連線、逾時或 HTTP 請求失敗時，手動操作詢問是否直接連線；啟動自動檢查失敗僅記錄日誌。更新資料或簽章錯誤不詢問直接連線。
+- 同意後透過 `.no_proxy()` 重試一次；模式與操作 ID 從檢查延續到本次安裝，取消後不再請求，下次檢查重新使用預設代理。沒有代理時直接請求。不新增設定或永久偏好；應用層直接連線不繞過 TUN 路由。
+- 檢查上限 12 秒、清單 15 秒、下載 300 秒、連線 5 秒；安裝包限制 256 MB。先結束前次請求再重試，直接連線仍失敗沿用現有提示。
+- 確認彈窗沿用主題變數及短過渡，支援四種語言、Esc/遮罩取消、Tab 焦點限制、焦點復原與減少動畫。
 
 ## 6. 國際化規範
 
@@ -194,4 +205,4 @@ CI 與發布建置使用 Node.js 22，執行 `npm run test:frontend`。發布標
 - 資料模型變更：不得無提示改寫使用者既有名稱、備註或其他業務資料。
 - 安全變更：確認敏感資訊不會寫入前端持久化、設定檔或日誌。
 - 文件變更：同步 `development.md`、`development.en.md` 和 `development.zh-TW.md`。
-- 完成後至少執行 `npm run build`、`cargo fmt --all -- --check`、`cargo check --locked` 和 `cargo test --locked`。
+- 完成後執行 `npm run build`、`npm run test:frontend`、`cargo fmt --all -- --check`、`cargo check --locked`、`cargo test --locked` 及 CI 使用的 `cargo clippy --all-targets --all-features --locked -- -D warnings`。

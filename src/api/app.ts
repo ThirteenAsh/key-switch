@@ -18,7 +18,11 @@ export interface UpdateInfo {
   prerelease: boolean;
   publishedAt?: string;
   releaseTag: string;
+  networkMode: UpdateNetworkMode;
+  operationId: string;
 }
+
+export type UpdateNetworkMode = "auto" | "direct";
 
 export type ClientLogLevel = "INFO" | "WARN" | "ERROR";
 
@@ -101,8 +105,8 @@ export const loadAppSettings = (legacyLocalePreference?: string) => desktopInvok
 );
 export const saveAppSettings = (settings: AppSettings) => desktopInvoke<AppSettings>("save_app_settings", { settings });
 export const listProviders = () => desktopInvoke<ProviderSummary[]>("list_providers");
-export const checkForAppUpdates = () => desktopInvoke<UpdateInfo | null>("check_for_updates");
-export const installAppUpdate = (releaseTag: string) => desktopInvoke<void>("install_update", { releaseTag });
+export const checkForAppUpdates = (networkMode: UpdateNetworkMode = "auto", operationId?: string) => desktopInvoke<UpdateInfo | null>("check_for_updates", { networkMode, operationId });
+export const installAppUpdate = (releaseTag: string, networkMode: UpdateNetworkMode = "auto", operationId?: string) => desktopInvoke<void>("install_update", { releaseTag, networkMode, operationId });
 export const openDataDirectory = () => desktopInvoke<void>("open_data_directory");
 export const openLogDirectory = () => desktopInvoke<void>("open_log_directory");
 export const clearLogs = () => desktopInvoke<void>("clear_logs");

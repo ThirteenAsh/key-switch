@@ -34,7 +34,7 @@ Browser mode does not provide Tauri capabilities such as the system credential s
 # Type-check and build the frontend for production
 npm run build
 
-# Frontend navigation and ordering tests
+# Frontend navigation, update interaction, and logging tests
 npm run test:frontend
 
 # Format, compile, and test Rust
@@ -42,13 +42,14 @@ cd src-tauri
 cargo fmt --all -- --check
 cargo check --locked
 cargo test --locked
+cargo clippy --all-targets --all-features --locked -- -D warnings
 ```
 
 Changes to frontend/backend contracts, the settings file, or security-sensitive logic must pass both the frontend build and Rust tests before being submitted.
 
 ### Versioning and releases
 
-The current application version is `1.1.0`. Version changes must update `package.json`, root package versions in `package-lock.json`, `src-tauri/Cargo.toml`, the application entry in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json` including the Windows WiX version, all four README badges, and the default release workflow tag.
+The current application version is `1.1.1`. Version changes must update `package.json`, root package versions in `package-lock.json`, `src-tauri/Cargo.toml`, the application entry in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json` including the Windows WiX version, all four README badges, and the default release workflow tag.
 
 UI fallback versions come from `package.json`; Rust request headers use `CARGO_PKG_VERSION` instead of separate version strings. The running desktop version still comes from Tauri.
 
@@ -79,7 +80,7 @@ The frontend owns presentation, interaction, and non-sensitive state. Sensitive 
 - Sidebar ordering reuses pointer capture, the 4px activation threshold, and FLIP drop animations. The drag handle also supports `Alt + ↑ / ↓`; reduced motion skips drop animations.
 - Ordering uses the existing `reorder_providers` command with the complete ID list. Further reordering is disabled while saving; failures restore the previous order and display a translated error.
 - `/settings` redirects to `/settings/general`. Existing settings are grouped into General (language, appearance), Data & logs (storage directory, logs), and About (version, repository, updates), at `/settings/general`, `/settings/data`, and `/settings/about`. Back returns to the main page.
-- Version and update installation status appear at the bottom of the sidebar. Settings continue using the existing Store queue; Rust contracts and runtime data structures are unchanged.
+- Version and update installation status appear at the bottom of the sidebar. Settings continue using the existing Store queue and unchanged settings/business data files. Update commands add a connection mode and operation ID scoped to the current operation.
 - Settings category pages share the main page heading height, text and icon sizes, with compact controls. Bottom sidebar navigation wraps when space is limited and preserves full labels in every language.
 
 ## 5. Local data and application settings
@@ -132,7 +133,17 @@ When adding a setting, update all of the following:
 
 The frontend merges partial changes with `settingsStore.updateSettings()`, but every command and file write contains the complete settings object. A compatible field with a default can keep the current `schemaVersion`. Removing a field, changing its type, or changing its meaning requires a version bump and an explicit migration. Do not change only the version number: unsupported versions are intentionally rejected.
 
-Logging behavior: native business events are written to `logs/key-switch.log`, with one rotated 1 MB backup. The frontend uses a single logging command for Vue runtime errors, unhandled Promise rejections, resource errors, and failed Tauri commands. Client entries accept only allow-listed levels and event names; details have newlines removed, are truncated, and redact common credential fields. Users can open the log directory from the Settings page for troubleshooting.
+Logging behavior: native events are written to `logs/key-switch.log`. Each file rotates at 1 MB with 3 backups, all removed by Clear logs. New entries use RFC 3339 timestamps with session and process IDs; startup includes version, OS and architecture. Native command errors are logged after redaction, while the UI receives stable error codes only. Update events include operation ID, stage, proxy source, elapsed time, byte counts and signature outcomes. Key checks record non-sensitive IDs, HTTP status and failure categories, including early DNS failures. Never log full keys, credentials, URL paths/queries or response bodies.
+
+Frontend logging covers Vue errors, unhandled rejections and resource failures using capture listeners. The native logging boundary redacts and truncates all details. Failed writes fall back to redacted stderr entries; frontend write failures emit a single warning without details. Rust panic logging records locations only, without potentially sensitive payloads. Forced process termination does not guarantee a final entry.
+
+### Update connections and direct retry
+
+- Release checks, manifests and downloads default to environment and supported system proxies, honoring `NO_PROXY`; environment variables take priority. Windows manual proxies are supported; PAC configuration is outside this implementation.
+- Proxied network, connection, timeout or HTTP request failures prompt during manual operations. Startup checks remain quiet and log failures. Invalid update data or signatures never trigger direct retry prompts.
+- Consent retries once using `.no_proxy()`. The mode and operation ID carry from checking through this installation; cancellation makes no further requests. The next check starts with the default proxy policy. No settings or permanent preference are added. Application-level direct mode does not bypass TUN routing.
+- Checks have a 12-second limit, manifests 15 seconds, downloads 300 seconds, and connections 5 seconds. Download size is capped at 256 MB. The previous request ends before retrying; failed direct retries use existing errors.
+- The confirmation dialog uses theme variables and short transitions, with four languages, Escape/backdrop cancellation, Tab focus containment, focus restoration and reduced-motion support.
 
 ## 6. Internationalization rules
 
@@ -194,4 +205,4 @@ Development rules:
 - Data model changes: never silently rewrite existing names, notes, or other user data.
 - Security changes: confirm sensitive values cannot reach frontend persistence, settings files, or logs.
 - Documentation changes: keep `development.md`, `development.en.md`, and `development.zh-TW.md` synchronized.
-- At minimum, run `npm run build`, `cargo fmt --all -- --check`, `cargo check --locked`, and `cargo test --locked`.
+- Run `npm run build`, `npm run test:frontend`, `cargo fmt --all -- --check`, `cargo check --locked`, `cargo test --locked`, and the CI command `cargo clippy --all-targets --all-features --locked -- -D warnings`.
