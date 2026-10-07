@@ -51,7 +51,7 @@ const zhCN = {
     addKey: "添加 Key",
     columns: {
       remark: "备注",
-      maskedKey: "API Key（部分隐藏）",
+      maskedKey: "API Key",
       status: "状态",
       actions: "操作",
     },
@@ -259,6 +259,12 @@ const zhCN = {
     unexpectedStatus: "供应商返回了无法识别的状态",
   },
   update: {
+    proxyFailedTitle: "代理更新失败",
+    proxyFailedMessage: "通过代理更新未能完成，是否本次改用直连重试？",
+    directRetryHint: "直连访问 GitHub 也可能失败。此选择仅对本次更新生效。",
+    retryDirect: "直连重试",
+    waitingForChoice: "等待选择更新连接方式",
+
     stable: "稳定版",
     available: "发现新版本 v{version}",
     current: "当前版本 v{version}",
@@ -271,6 +277,8 @@ const zhCN = {
     failed: "更新下载失败，请稍后重试",
   },
   errors: {
+    updateProxyFailed: "通过代理更新失败，请重试或改用直连",
+
     desktopRequired: "请在桌面应用中使用本地数据功能",
     dataDirectoryUnavailable: "无法读取应用数据目录",
     logDirectoryUnavailable: "无法读取日志目录",

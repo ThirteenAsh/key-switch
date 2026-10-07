@@ -6,6 +6,10 @@
         <LoaderCircle :size="13" aria-hidden="true" />
         {{ t("update.downloading") }}
       </p>
+      <p v-else-if="updateStore.installStatus === 'confirming'" key="confirming" class="update-status" role="status">
+        <TriangleAlert :size="13" aria-hidden="true" />
+        {{ t("update.waitingForChoice") }}
+      </p>
       <p v-else-if="updateStore.installStatus === 'timeout'" key="timeout" class="update-status update-status--warning" role="alert">
         <TriangleAlert :size="13" aria-hidden="true" />
         {{ t("update.timeout") }}

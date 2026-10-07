@@ -25,6 +25,7 @@
       @release="openUpdateRelease"
     />
     <Transition name="toast"><p v-if="notice" class="toast" role="status">{{ notice }}</p></Transition>
+    <UpdateNetworkDialog :open="confirmingDirect" @close="updateStore.chooseDirect(false)" @confirm="updateStore.chooseDirect(true)" />
   </div>
 </template>
 
@@ -34,10 +35,10 @@ import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { UpdateInfo } from "./api/app";
-import { checkForAppUpdates } from "./api/app";
 import AppSidebar from "./components/AppSidebar.vue";
 import UpdateAvailableDialog from "./components/UpdateAvailableDialog.vue";
 import UpdateAvailableToast from "./components/UpdateAvailableToast.vue";
+import UpdateNetworkDialog from "./components/UpdateNetworkDialog.vue";
 import { useDashboardStore } from "./stores/dashboard";
 import { useUpdateStore } from "./stores/update";
 import { translateAppError } from "./i18n/errors";
@@ -45,7 +46,7 @@ import { translateAppError } from "./i18n/errors";
 const store = useDashboardStore();
 const { t } = useI18n();
 const updateStore = useUpdateStore();
-const { installing: installingUpdate } = storeToRefs(updateStore);
+const { installing: installingUpdate, confirmingDirect } = storeToRefs(updateStore);
 const availableUpdate = ref<UpdateInfo | null>(null);
 const updateDialogOpen = ref(false);
 const notice = ref("");
@@ -60,7 +61,7 @@ function notify(message: string) {
 
 async function checkForUpdatesAtStartup() {
   try {
-    availableUpdate.value = await checkForAppUpdates();
+    availableUpdate.value = await updateStore.check(false) ?? null;
     if (availableUpdate.value) {
       window.clearTimeout(updateToastTimer);
       updateToastTimer = window.setTimeout(dismissUpdate, 5000);
@@ -101,9 +102,9 @@ async function openUpdateRelease() {
 
 async function installAvailableUpdate() {
   if (!availableUpdate.value || installingUpdate.value) return;
-  const releaseTag = availableUpdate.value.releaseTag;
+  const update = availableUpdate.value;
   dismissUpdate();
-  void updateStore.install(releaseTag).catch(() => {});
+  void updateStore.install(update).catch(() => {});
 }
 
 onMounted(() => {

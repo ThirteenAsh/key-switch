@@ -16,6 +16,7 @@ export const appErrorTranslationKeys = {
   NETWORK_CLIENT_FAILED: "errors.networkClientFailed",
   VERSION_INVALID: "errors.versionInvalid",
   UPDATE_CHECK_FAILED: "errors.updateCheckFailed",
+  UPDATE_PROXY_FAILED: "errors.updateProxyFailed",
   UPDATE_RESPONSE_TOO_LARGE: "errors.updateResponseTooLarge",
   UPDATE_DATA_INVALID: "errors.updateDataInvalid",
   UPDATE_TAG_INVALID: "errors.updateTagInvalid",
