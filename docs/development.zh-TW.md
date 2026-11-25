@@ -49,7 +49,7 @@ cargo clippy --all-targets --all-features --locked -- -D warnings
 
 ### 版本與發布
 
-目前應用程式版本為 `1.1.1`。更新版本時同步 `package.json`、`package-lock.json` 根套件版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的應用套件版本、`src-tauri/tauri.conf.json` 及 Windows WiX 版本，並更新四份 README 版本徽章與發布流程預設標籤。
+目前應用程式版本為 `1.1.2`。更新版本時同步 `package.json`、`package-lock.json` 根套件版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的應用套件版本、`src-tauri/tauri.conf.json` 及 Windows WiX 版本，並更新四份 README 版本徽章與發布流程預設標籤。
 
 介面版本回退值讀取 `package.json`，Rust 請求標頭使用 `CARGO_PKG_VERSION`；不再個別維護版本字串。實際桌面版本仍以 Tauri 回傳的資訊為準。
 
@@ -79,6 +79,7 @@ CI 與發布建置使用 Node.js 22，執行 `npm run test:frontend`。發布標
 - 供應商選取狀態僅保留在 Pinia 目前工作階段，不新增資料檔案或設定欄位。左側不提供供應商搜尋，始終顯示完整清單；首次載入預設選取第一個供應商，已選供應商遭刪除時回退到首項。右側 Key 搜尋關鍵字僅保留在頁面元件中。
 - 左側供應商排序沿用指標捕獲、4px 啟動門檻與 FLIP 落位動畫，並支援在拖曳手柄上使用 `Alt + ↑ / ↓` 調整順序。減少動畫模式略過落位動畫。
 - 排序仍透過既有 `reorder_providers` 命令儲存完整 ID 順序；儲存期間禁止重複排序，失敗時恢復原順序並顯示翻譯後的錯誤。
+- 供應商管理的設定視窗可預覽、更換或移除自訂供應商圖示，支援最大 2 MB 的 PNG、JPG 和 WebP。移除後使用預設圖示，儲存成功後更新清單。已有 Key 檢查時，設定儲存會等待檢查完成。
 - `/settings` 預設進入 `/settings/general`。設定依現有功能分為一般（語言、外觀）、資料與日誌（儲存目錄、日誌）、關於（版本、儲存庫、更新），分別對應 `/settings/general`、`/settings/data`、`/settings/about`；返回按鈕回到主頁面。
 - 版本與更新安裝狀態顯示於側欄底部；設定儲存仍使用既有 Store 佇列，設定與業務資料檔結構保持不變；更新命令新增僅本次生效的連線模式與操作 ID。
 - 設定分類頁沿用主頁面的標題高度、文字與圖示尺寸，控制項維持緊湊。側欄底部導覽在剩餘寬度不足時自動換行，完整保留各語言的標籤。
@@ -93,6 +94,8 @@ CI 與發布建置使用 Node.js 22，執行 `npm run test:frontend`。發布標
 | 應用程式設定 | `settings.json` | 只保存非敏感偏好 |
 | 完整 API Key | 系統密鑰庫 | 不寫入 JSON 檔案 |
 | 執行記錄 | `logs/` | 不得記錄完整 Key 或其他憑據 |
+
+供應商與 Key 中繼資料先寫入同目錄的暫存檔並同步至磁碟，再以原子操作取代正式檔案。
 
 目前設定檔範例：
 
@@ -173,6 +176,7 @@ CI 與發布建置使用 Node.js 22，執行 `npm run test:frontend`。發布標
 - 前端統一透過 `src/api/app.ts` 呼叫 `invoke`，不要在頁面元件中散落命令字串。
 - 新增 Rust 命令使用 `#[tauri::command]`，並在 `src-tauri/src/lib.rs` 的 `tauri::generate_handler!` 中註冊。
 - 命令參數和回傳結構必須同步維護 Rust 與 TypeScript 型別。
+- `update_provider` 透過選填的 `logoUpdate` 修改現有 `logo` 欄位。省略時保留原圖示，`replace` 帶入圖片 Data URL，`remove` 恢復預設圖示。Rust 僅套用自訂供應商的圖示修改，並檢查圖片類型和大小。僅修改圖示時保留既有的 Key 檢查狀態。
 - Rust 對介面只回傳穩定、非敏感的錯誤碼；底層原始錯誤不得直接顯示給使用者。
 - 前端透過 `src/i18n/errors.ts` 將錯誤碼對應到翻譯鍵。
 - 業務邏輯不得透過比對中文或英文錯誤文字判斷狀態。

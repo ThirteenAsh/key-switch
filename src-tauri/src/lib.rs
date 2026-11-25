@@ -1,6 +1,7 @@
 mod diagnostics;
 mod update_network;
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -8,7 +9,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Write,
     net::{IpAddr, SocketAddr},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     sync::Mutex,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -137,6 +138,8 @@ fn command_error_code(message: &str) -> &'static str {
         "PROVIDER_ORDER_INVALID"
     } else if message.starts_with("供应商检测配置无效") {
         "PROVIDER_VALIDATION_INVALID"
+    } else if message.starts_with("供应商图标无效") {
+        "PROVIDER_LOGO_INVALID"
     } else if message.starts_with("API Key 不能为空") {
         "API_KEY_REQUIRED"
     } else if message.starts_with("未找到 API Key") {
@@ -292,6 +295,18 @@ struct UpdateProviderInput {
     platform_url: Option<String>,
     #[serde(default)]
     validation: ValidationConfig,
+    logo_update: Option<ProviderLogoUpdate>,
+}
+
+#[derive(Deserialize)]
+#[serde(
+    tag = "action",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+enum ProviderLogoUpdate {
+    Replace { data_url: String },
+    Remove,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -642,13 +657,24 @@ fn load_data(app: &tauri::AppHandle) -> Result<AppData, String> {
 }
 fn save_data(app: &tauri::AppHandle, data: &AppData) -> Result<(), String> {
     let file = data_file(app)?;
-    fs::create_dir_all(file.parent().ok_or("无法创建应用数据目录")?)
-        .map_err(|e| format!("无法创建应用数据目录：{e}"))?;
-    fs::write(
-        file,
-        serde_json::to_string_pretty(data).map_err(|e| format!("无法序列化本地数据：{e}"))?,
-    )
-    .map_err(|e| format!("无法保存本地数据：{e}"))
+    save_data_to_file(&file, data)
+}
+
+fn save_data_to_file(file: &Path, data: &AppData) -> Result<(), String> {
+    let directory = file.parent().ok_or("无法创建应用数据目录")?;
+    fs::create_dir_all(directory).map_err(|e| format!("无法创建应用数据目录：{e}"))?;
+    let serialized =
+        serde_json::to_string_pretty(data).map_err(|e| format!("无法序列化本地数据：{e}"))?;
+    let mut temporary =
+        tempfile::NamedTempFile::new_in(directory).map_err(|e| format!("无法保存本地数据：{e}"))?;
+    temporary
+        .write_all(serialized.as_bytes())
+        .and_then(|_| temporary.as_file().sync_all())
+        .map_err(|e| format!("无法保存本地数据：{e}"))?;
+    temporary
+        .persist(file)
+        .map_err(|error| format!("无法保存本地数据：{}", error.error))?;
+    Ok(())
 }
 
 fn keyring_entry(secret_id: &str) -> Result<Entry, String> {
@@ -1063,14 +1089,16 @@ async fn validate_key(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_validation_request, classify_validation_status, command_error_code,
-        load_settings_from_file, normalize_validation_config, parse_safe_validation_url,
-        sanitize_client_log_detail, save_settings_to_file, valid_client_log_event,
-        valid_client_log_level, valid_header_name, valid_locale_preference, valid_theme_preference,
-        AppData, AppSettings, ClientLogInput, KeyValidationSpec, SemVersion, ValidationConfig,
-        ValidationOutcome, SETTINGS_BACKUP_FILE_NAME, SETTINGS_FILE_NAME, SETTINGS_SCHEMA_VERSION,
-        SETTINGS_TEMP_FILE_NAME,
+        apply_provider_update, build_validation_request, classify_validation_status,
+        command_error_code, load_settings_from_file, normalize_validation_config,
+        parse_safe_validation_url, sanitize_client_log_detail, save_data_to_file,
+        save_settings_to_file, valid_client_log_event, valid_client_log_level, valid_header_name,
+        valid_locale_preference, valid_provider_logo, valid_theme_preference, AppData, AppSettings,
+        ClientLogInput, KeyValidationSpec, ProviderRecord, SemVersion, ValidationConfig,
+        ValidationOutcome, BASE64, SETTINGS_BACKUP_FILE_NAME, SETTINGS_FILE_NAME,
+        SETTINGS_SCHEMA_VERSION, SETTINGS_TEMP_FILE_NAME,
     };
+    use base64::Engine as _;
     use reqwest::StatusCode;
     use std::{fs, process};
 
@@ -1121,6 +1149,99 @@ mod tests {
         .unwrap();
         assert_eq!(data.providers[0].validation, ValidationConfig::None);
         assert_eq!(data.providers[0].keys[0].check_error_code, None);
+    }
+
+    #[test]
+    fn updates_custom_provider_logo_without_resetting_key_checks() {
+        const PNG: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/eZYAAAAASUVORK5CYII=";
+        let mut provider: ProviderRecord = serde_json::from_value(serde_json::json!({
+            "id": "custom-example",
+            "name": "Example",
+            "abbreviation": "EX",
+            "tone": "gray",
+            "kind": "custom",
+            "logo": "previous-logo",
+            "validation": { "mode": "bearer", "endpoint": "https://example.com/check" },
+            "keys": [{
+                "id": "key-1",
+                "providerId": "custom-example",
+                "remark": "",
+                "secretId": "key-1",
+                "status": "valid",
+            }],
+        }))
+        .unwrap();
+        let base_input = serde_json::json!({
+            "id": provider.id,
+            "name": provider.name,
+            "validation": provider.validation,
+        });
+
+        let unchanged = serde_json::from_value(base_input.clone()).unwrap();
+        apply_provider_update(&mut provider, unchanged).unwrap();
+        assert_eq!(provider.logo.as_deref(), Some("previous-logo"));
+
+        let mut edited = base_input.clone();
+        edited["logoUpdate"] = serde_json::json!({ "action": "replace", "dataUrl": PNG });
+        let replacement = serde_json::from_value(edited.clone()).unwrap();
+        apply_provider_update(&mut provider, replacement).unwrap();
+        assert_eq!(provider.logo.as_deref(), Some(PNG));
+        assert_eq!(provider.keys[0].status, "valid");
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("metadata.json");
+        let mut data = AppData {
+            providers: vec![provider.clone()],
+        };
+        save_data_to_file(&file, &data).unwrap();
+        let reloaded: AppData = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+        assert_eq!(reloaded.providers[0].logo.as_deref(), Some(PNG));
+
+        edited["logoUpdate"]["dataUrl"] = serde_json::json!("data:image/png;base64,AAAA");
+        let invalid = serde_json::from_value(edited).unwrap();
+        let error = apply_provider_update(&mut provider, invalid).unwrap_err();
+        assert_eq!(command_error_code(&error), "PROVIDER_LOGO_INVALID");
+        assert_eq!(provider.logo.as_deref(), Some(PNG));
+
+        let mut removed = base_input;
+        removed["logoUpdate"] = serde_json::json!({ "action": "remove" });
+        let removal = serde_json::from_value(removed.clone()).unwrap();
+        apply_provider_update(&mut provider, removal).unwrap();
+        assert!(provider.logo.is_none());
+        assert_eq!(provider.keys[0].status, "valid");
+        data.providers[0] = provider.clone();
+        save_data_to_file(&file, &data).unwrap();
+        let reloaded: AppData = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+        assert!(reloaded.providers[0].logo.is_none());
+
+        provider.kind = "builtin".into();
+        provider.logo = Some("builtin-logo".into());
+        let removal = serde_json::from_value(removed).unwrap();
+        apply_provider_update(&mut provider, removal).unwrap();
+        assert_eq!(provider.logo.as_deref(), Some("builtin-logo"));
+    }
+
+    #[test]
+    fn validates_provider_logo_format_and_size() {
+        assert!(valid_provider_logo("data:image/jpeg;base64,/9j/"));
+        assert!(valid_provider_logo(
+            "data:image/webp;base64,UklGRgAAAABXRUJQ"
+        ));
+        assert!(!valid_provider_logo("data:image/png;base64,/9j/"));
+        assert!(!valid_provider_logo(
+            "data:image/svg+xml;base64,iVBORw0KGgo="
+        ));
+        assert!(!valid_provider_logo("https://example.com/logo.png"));
+        let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+        png.resize(2 * 1024 * 1024, 0);
+        assert!(valid_provider_logo(&format!(
+            "data:image/png;base64,{}",
+            BASE64.encode(&png)
+        )));
+        png.push(0);
+        assert!(!valid_provider_logo(&format!(
+            "data:image/png;base64,{}",
+            BASE64.encode(&png)
+        )));
     }
 
     #[test]
@@ -1728,7 +1849,52 @@ fn update_provider(
         .iter_mut()
         .find(|p| p.id == input.id)
         .ok_or("未找到供应商")?;
+    apply_provider_update(provider, input)?;
+    let result = summary(provider)?;
+    save_data(&app, &data)?;
+    let _ = append_log(&app, "INFO", "provider_updated", "success");
+    Ok(result)
+}
+
+fn valid_provider_logo(logo: &str) -> bool {
+    const MAX_IMAGE_BYTES: usize = 2 * 1024 * 1024;
+    let Some((media, encoded)) = logo.split_once(',') else {
+        return false;
+    };
+    if encoded.len() > MAX_IMAGE_BYTES.div_ceil(3) * 4 {
+        return false;
+    }
+    let Ok(bytes) = BASE64.decode(encoded) else {
+        return false;
+    };
+    if bytes.len() > MAX_IMAGE_BYTES {
+        return false;
+    }
+    match media {
+        "data:image/png;base64" => bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+        "data:image/jpeg;base64" => bytes.starts_with(b"\xff\xd8\xff"),
+        "data:image/webp;base64" => bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"),
+        _ => false,
+    }
+}
+
+fn apply_provider_update(
+    provider: &mut ProviderRecord,
+    input: UpdateProviderInput,
+) -> Result<(), String> {
     let next_validation = normalize_validation_config(&provider.kind, input.validation)?;
+    if provider.kind == "custom" {
+        match input.logo_update {
+            Some(ProviderLogoUpdate::Replace { data_url }) => {
+                if !valid_provider_logo(&data_url) {
+                    return Err("供应商图标无效".into());
+                }
+                provider.logo = Some(data_url);
+            }
+            Some(ProviderLogoUpdate::Remove) => provider.logo = None,
+            None => {}
+        }
+    }
     let validation_changed = provider.validation != next_validation;
     provider.name = input.name.trim().into();
     provider.platform_url = input.platform_url.filter(|u| !u.trim().is_empty());
@@ -1744,10 +1910,7 @@ fn update_provider(
             key.check_error_code = None;
         }
     }
-    let result = summary(provider)?;
-    save_data(&app, &data)?;
-    let _ = append_log(&app, "INFO", "provider_updated", "success");
-    Ok(result)
+    Ok(())
 }
 #[tauri::command]
 fn delete_provider(app: tauri::AppHandle, provider_id: String) -> Result<(), CommandError> {

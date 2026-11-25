@@ -3,23 +3,28 @@ import { ref, watch } from "vue";
 import { Save, X } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
+import ProviderAvatarField from "./ui/ProviderAvatarField.vue";
 import ProviderValidationFields from "./ProviderValidationFields.vue";
-import type { ProviderSummary, ProviderValidation } from "../types/domain";
+import type { ProviderSummary, ProviderValidation, UpdateProviderInput } from "../types/domain";
 import { normalizeProviderValidation, validateProviderValidation } from "../utils/providerValidation";
 
 const props = defineProps<{
   open: boolean;
   provider: ProviderSummary | null;
+  saving: boolean;
+  saveError: string;
 }>();
 const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];
-  save: [payload: { id: string; name: string; platformUrl: string; validation: ProviderValidation }];
+  save: [payload: UpdateProviderInput];
 }>();
 
 const name = ref("");
 const platformUrl = ref("");
+const logo = ref("");
+const readingLogo = ref(false);
 const validation = ref<ProviderValidation>({ mode: "none" });
 const error = ref("");
 
@@ -27,6 +32,7 @@ watch(() => [props.open, props.provider] as const, ([isOpen, provider]) => {
   if (!isOpen || !provider) return;
   name.value = provider.name;
   platformUrl.value = provider.platformUrl ?? "";
+  logo.value = provider.logo ?? "";
   // provider 来自 Pinia 响应式状态，不能直接交给 structuredClone；这些配置只包含
   // 字符串字段，展开为普通对象即可避免编辑弹窗与列表状态互相修改。
   validation.value = { ...provider.validation };
@@ -42,29 +48,32 @@ function ensureHttpsPrefix() {
 }
 
 function submit() {
+  if (props.saving || readingLogo.value || !props.provider) return;
+  const provider = props.provider;
   const normalizedName = name.value.trim();
   const normalizedPlatformUrl = ensureHttpsPrefix();
 
-  if (!props.provider || !normalizedName) {
+  if (!normalizedName) {
     error.value = t("providerDialog.errors.nameRequired");
     return;
   }
 
-  if (!normalizedPlatformUrl) {
+  if (!normalizedPlatformUrl && (provider.kind === "builtin" || provider.platformUrl)) {
     error.value = t("providerDialog.errors.platformUrlRequired");
     return;
   }
 
-  try {
-    const parsedUrl = new URL(normalizedPlatformUrl);
-    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") throw new Error();
-  } catch {
-    error.value = t("providerDialog.errors.invalidUrl");
-    return;
+  if (normalizedPlatformUrl) {
+    try {
+      const parsedUrl = new URL(normalizedPlatformUrl);
+      if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") throw new Error();
+    } catch {
+      error.value = t("providerDialog.errors.invalidUrl");
+      return;
+    }
   }
 
-
-  if (props.provider.kind === "custom") {
+  if (provider.kind === "custom") {
     const validationError = validateProviderValidation(validation.value);
     if (validationError) {
       error.value = t(`providerDialog.errors.${validationError}`);
@@ -72,44 +81,52 @@ function submit() {
     }
   }
 
-  emit("save", {
-    id: props.provider.id,
+  const input: UpdateProviderInput = {
+    id: provider.id,
     name: normalizedName,
-    platformUrl: normalizedPlatformUrl,
-    validation: props.provider.kind === "custom" ? normalizeProviderValidation(validation.value) : { mode: "none" },
-  });
+    platformUrl: normalizedPlatformUrl || undefined,
+    validation: provider.kind === "custom" ? normalizeProviderValidation(validation.value) : { mode: "none" },
+  };
+  if (provider.kind === "custom" && logo.value !== (provider.logo ?? "")) {
+    input.logoUpdate = logo.value ? { action: "replace", dataUrl: logo.value } : { action: "remove" };
+  }
+  error.value = "";
+  emit("save", input);
 }
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="edit-dialog-fade">
-      <div v-if="open && provider" class="dialog-backdrop" role="presentation" @click.self="emit('close')">
+      <div v-if="open && provider" class="dialog-backdrop" role="presentation" @click.self="!saving && emit('close')">
         <section class="provider-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-edit-title">
           <header class="provider-edit-header">
             <div>
               <h2 id="provider-edit-title">{{ t("providerDialog.editTitle") }}</h2>
-              <p>{{ t("providerDialog.editDescription") }}</p>
+              <p>{{ t(provider.kind === "custom" ? "providerDialog.editCustomDescription" : "providerDialog.editDescription") }}</p>
             </div>
-            <AppButton variant="ghost" size="icon-sm" :aria-label="t('common.close')" @click="emit('close')">
+            <AppButton variant="ghost" size="icon-sm" :disabled="saving" :aria-label="t('common.close')" @click="emit('close')">
               <X :size="15" :stroke-width="2" />
             </AppButton>
           </header>
 
-          <form class="provider-edit-form" @submit.prevent="submit">
-            <label>
-              <span>{{ t("providerDialog.name") }}</span>
-              <input v-model="name" maxlength="64" autocomplete="off" />
-            </label>
-            <label>
-              <span>{{ t("providerDialog.platformUrl") }}</span>
-              <input v-model="platformUrl" type="text" inputmode="url" placeholder="https://platform.example.com" autocomplete="url" @blur="ensureHttpsPrefix" />
-            </label>
-            <ProviderValidationFields v-if="provider.kind === 'custom'" v-model="validation" />
-            <p v-if="error" class="provider-edit-error" role="alert">{{ error }}</p>
+          <form class="provider-edit-form" :aria-busy="saving" @submit.prevent="submit">
+            <fieldset :disabled="saving">
+              <ProviderAvatarField v-if="provider.kind === 'custom'" :key="provider.id" v-model="logo" v-model:reading="readingLogo" />
+              <label>
+                <span>{{ t("providerDialog.name") }}</span>
+                <input v-model="name" maxlength="64" autocomplete="off" />
+              </label>
+              <label>
+                <span>{{ t("providerDialog.platformUrl") }}</span>
+                <input v-model="platformUrl" type="text" inputmode="url" placeholder="https://platform.example.com" autocomplete="url" @blur="ensureHttpsPrefix" />
+              </label>
+              <ProviderValidationFields v-if="provider.kind === 'custom'" v-model="validation" />
+            </fieldset>
+            <p v-if="error || saveError" class="provider-edit-error" role="alert">{{ error || saveError }}</p>
             <footer>
-              <AppButton variant="secondary" type="button" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
-              <AppButton variant="primary" type="submit">
+              <AppButton variant="secondary" type="button" :disabled="saving" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
+              <AppButton variant="primary" type="submit" :loading="saving" :disabled="readingLogo">
                 <Save :size="15" :stroke-width="2" />
                 <span>{{ t("common.save") }}</span>
               </AppButton>
@@ -167,6 +184,15 @@ function submit() {
   display: grid;
   gap: 18px;
   margin-top: 22px;
+}
+
+.provider-edit-form > fieldset {
+  display: grid;
+  gap: inherit;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .provider-edit-form label {

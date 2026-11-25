@@ -49,7 +49,7 @@ cargo clippy --all-targets --all-features --locked -- -D warnings
 
 ### 版本与发布
 
-当前应用版本为 `1.1.1`。更新版本时同步 `package.json`、`package-lock.json` 根包版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的应用包版本、`src-tauri/tauri.conf.json` 及 Windows WiX 版本，并更新四份 README 版本徽章与发布流程默认标签。
+当前应用版本为 `1.1.2`。更新版本时同步 `package.json`、`package-lock.json` 根包版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的应用包版本、`src-tauri/tauri.conf.json` 及 Windows WiX 版本，并更新四份 README 版本徽章与发布流程默认标签。
 
 界面版本回退值读取 `package.json`，Rust 请求头使用 `CARGO_PKG_VERSION`；不再单独维护版本字符串。实际桌面版本仍以 Tauri 返回的信息为准。
 
@@ -79,6 +79,7 @@ CI 和发布构建使用 Node.js 22，运行 `npm run test:frontend`。发布标
 - 供应商选中状态仅保留在 Pinia 当前会话中，不新增数据文件或设置字段。左侧不提供供应商搜索，始终显示完整列表；首次加载默认选中首个供应商，已选供应商删除时回退到首项。右侧 Key 搜索关键词仅保留在页面组件中。
 - 左侧供应商排序复用指针捕获、4px 激活阈值和 FLIP 落位动画，并支持在拖动手柄上使用 `Alt + ↑ / ↓` 调整顺序。减少动画模式跳过落位动画。
 - 排序仍通过现有 `reorder_providers` 命令保存完整 ID 顺序；保存期间禁止重复排序，失败时恢复原顺序并显示翻译后的错误。
+- 供应商管理的配置弹窗可预览、替换或移除自定义供应商图标，支持最大 2 MB 的 PNG、JPG 和 WebP。移除后使用默认图标，保存成功后更新列表。已有 Key 检测时，配置保存会等待检测完成。
 - `/settings` 默认进入 `/settings/general`。设置按现有功能划分为通用（语言、外观）、数据与日志（存储目录、日志）、关于（版本、仓库、更新），分别对应 `/settings/general`、`/settings/data`、`/settings/about`；返回按钮回到主页面。
 - 版本与更新安装状态显示在侧栏底部；设置保存仍使用原有 Store 队列，设置与业务数据文件结构保持不变；更新命令增加仅本次生效的连接模式和操作 ID。
 - 设置分类页沿用主页面的标题高度、文字与图标尺寸，控件保持紧凑。侧栏底部导航在剩余宽度不足时自动换行，完整保留各语言的标签。
@@ -93,6 +94,8 @@ CI 和发布构建使用 Node.js 22，运行 `npm run test:frontend`。发布标
 | 应用设置 | `settings.json` | 只保存非敏感偏好 |
 | 完整 API Key | 系统密钥库 | 不写入 JSON 文件 |
 | 运行日志 | `logs/` | 不得记录完整 Key 或其他凭据 |
+
+供应商与 Key 元数据先写入同目录的临时文件并同步落盘，再原子替换正式文件。
 
 当前设置文件示例：
 
@@ -173,6 +176,7 @@ CI 和发布构建使用 Node.js 22，运行 `npm run test:frontend`。发布标
 - 前端统一通过 `src/api/app.ts` 调用 `invoke`，不要在页面中直接散落命令字符串。
 - 新增 Rust 命令使用 `#[tauri::command]`，并在 `src-tauri/src/lib.rs` 的 `tauri::generate_handler!` 中注册。
 - 命令参数和返回结构必须同时维护 Rust 与 TypeScript 类型。
+- `update_provider` 通过可选的 `logoUpdate` 修改现有 `logo` 字段。省略时保留原图标，`replace` 携带图片 Data URL，`remove` 恢复默认图标。Rust 仅对自定义供应商应用图标修改，并校验图片类型和大小。仅修改图标时保留已有 Key 检测状态。
 - Rust 对界面只返回稳定、非敏感的错误码；底层错误不得直接显示给用户。
 - 前端通过 `src/i18n/errors.ts` 将错误码映射为翻译键。
 - 业务逻辑不得通过匹配中文或英文错误文本判断状态。

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { ImagePlus, Plus, Trash2, X } from "@lucide/vue";
+import { Plus, X } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
 import AppButton from "./ui/AppButton.vue";
+import ProviderAvatarField from "./ui/ProviderAvatarField.vue";
 import ProviderValidationFields from "./ProviderValidationFields.vue";
 import type { ProviderValidation } from "../types/domain";
 import { createEmptyValidation, normalizeProviderValidation, validateProviderValidation } from "../utils/providerValidation";
@@ -18,9 +19,9 @@ const emit = defineEmits<{
 const name = ref("");
 const platformUrl = ref("");
 const logo = ref("");
+const readingLogo = ref(false);
 const validation = ref<ProviderValidation>(createEmptyValidation());
 const error = ref("");
-const fileInput = ref<HTMLInputElement | null>(null);
 
 watch(() => props.open, (isOpen) => {
   if (!isOpen) return;
@@ -29,45 +30,7 @@ watch(() => props.open, (isOpen) => {
   logo.value = "";
   validation.value = createEmptyValidation();
   error.value = "";
-  if (fileInput.value) fileInput.value.value = "";
 });
-
-function selectAvatar() {
-  fileInput.value?.click();
-}
-
-function handleAvatarChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-
-  const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
-  if (!allowedTypes.includes(file.type)) {
-    error.value = t("providerDialog.errors.invalidAvatarType");
-    input.value = "";
-    return;
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    error.value = t("providerDialog.errors.avatarTooLarge");
-    input.value = "";
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    logo.value = typeof reader.result === "string" ? reader.result : "";
-    error.value = "";
-  };
-  reader.onerror = () => {
-    error.value = t("providerDialog.errors.avatarReadFailed");
-  };
-  reader.readAsDataURL(file);
-}
-
-function removeAvatar() {
-  logo.value = "";
-  if (fileInput.value) fileInput.value.value = "";
-}
 
 function ensureHttpsPrefix() {
   const value = platformUrl.value.trim();
@@ -78,6 +41,7 @@ function ensureHttpsPrefix() {
 }
 
 function submit() {
+  if (readingLogo.value) return;
   const normalizedName = name.value.trim();
   const normalizedPlatformUrl = ensureHttpsPrefix();
   if (!normalizedName) {
@@ -123,24 +87,7 @@ function submit() {
           </header>
 
           <form @submit.prevent="submit">
-            <div class="avatar-field">
-              <span class="field-label">{{ t("providerDialog.avatar") }}</span>
-              <div class="avatar-picker">
-                <img v-if="logo" :src="logo" :alt="t('common.selectedProviderAvatarAlt')" />
-                <ImagePlus v-else :size="22" :stroke-width="1.8" aria-hidden="true" />
-                <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" @change="handleAvatarChange" />
-                <div class="avatar-actions">
-                  <AppButton variant="secondary" size="sm" type="button" @click="selectAvatar">
-                    <ImagePlus :size="14" :stroke-width="2" />
-                    <span>{{ t(logo ? "common.replaceImage" : "common.uploadImage") }}</span>
-                  </AppButton>
-                  <AppButton v-if="logo" variant="ghost" size="icon-sm" type="button" :aria-label="t('common.removeAvatar')" @click="removeAvatar">
-                    <Trash2 :size="14" :stroke-width="2" />
-                  </AppButton>
-                </div>
-              </div>
-              <small>{{ t("providerDialog.avatarHelpOptional") }}</small>
-            </div>
+            <ProviderAvatarField v-model="logo" v-model:reading="readingLogo" />
 
             <label>
               <span class="field-label">{{ t("providerDialog.name") }}</span>
@@ -156,7 +103,7 @@ function submit() {
             <p v-if="error" class="form-error" role="alert">{{ error }}</p>
             <footer>
               <AppButton variant="secondary" type="button" @click="emit('close')">{{ t("common.cancel") }}</AppButton>
-              <AppButton variant="primary" type="submit">
+              <AppButton variant="primary" type="submit" :disabled="readingLogo">
                 <Plus :size="15" :stroke-width="2.2" />
                 <span>{{ t("providerDialog.addProvider") }}</span>
               </AppButton>
@@ -218,24 +165,6 @@ function submit() {
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
 }
 
-.avatar-field { display: grid; gap: 8px; }
-.avatar-picker { display: flex; align-items: center; gap: 12px; }
-.avatar-picker > img,
-.avatar-picker > svg {
-  display: grid;
-  width: 52px;
-  height: 52px;
-  flex: 0 0 52px;
-  place-items: center;
-  color: var(--text-subtle);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface-app);
-  object-fit: cover;
-}
-.avatar-picker input { display: none; }
-.avatar-actions { display: flex; align-items: center; gap: 4px; }
-.avatar-field small { color: var(--text-subtle); font-size: 11.5px; }
 .form-error { margin: -6px 0 0; color: var(--danger-text); font-size: 12px; }
 .custom-provider-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px; }
 </style>

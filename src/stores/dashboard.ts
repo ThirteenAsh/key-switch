@@ -2,7 +2,7 @@ import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { builtinProviderCatalog, getBuiltinProviderName } from "../data/providerCatalog";
 import { checkApiKey, checkProviderKeys, createApiKey, createProvider, deleteApiKey, deleteProvider, listProviders, reorderProviders, updateApiKey, updateProvider } from "../api/app";
-import type { ProviderSummary, ProviderValidation } from "../types/domain";
+import type { ProviderSummary, ProviderValidation, UpdateProviderInput } from "../types/domain";
 import type { AppLocale } from "../i18n/locale";
 
 export const useDashboardStore = defineStore("dashboard", () => {
@@ -11,6 +11,8 @@ export const useDashboardStore = defineStore("dashboard", () => {
   const loading = ref(true);
   const loadError = ref<unknown>(null);
   const sorting = ref(false);
+  const activeKeyChecks = new Set<Promise<unknown>>();
+  let pendingProviderUpdate: Promise<boolean> | undefined;
   const summary = computed(() => { const keys = providers.value.flatMap((p) => p.keys); return { providerCount: providers.value.length, keyCount: keys.length, availableKeyCount: keys.filter((key) => key.status === "valid").length }; });
   const selectedProvider = computed(() => providers.value.find((provider) => provider.id === selectedProviderId.value) ?? providers.value[0]);
   async function load() {
@@ -48,8 +50,21 @@ export const useDashboardStore = defineStore("dashboard", () => {
     const id = `custom-${crypto.randomUUID()}`;
     providers.value.push(await createProvider({ id, name: normalized, abbreviation: normalized.slice(0, 2).toUpperCase(), tone: "gray", kind: "custom", platformUrl: platformUrl.trim() || undefined, logo, validation })); selectedProviderId.value = id; return true;
   }
-  async function updateProviderConfiguration(id: string, name: string, platformUrl: string, validation: ProviderValidation) {
-    const updated = await updateProvider({ id, name, platformUrl: platformUrl.trim() || undefined, validation }); const index = providers.value.findIndex((p) => p.id === id); if (index < 0) return false; providers.value[index] = updated; return true;
+  async function updateProviderConfiguration(input: UpdateProviderInput) {
+    // 检测命令会保存读取时的供应商快照，配置保存需要等已有检测完成。
+    const operation = Promise.allSettled([pendingProviderUpdate, ...activeKeyChecks]).then(async () => {
+      const updated = await updateProvider(input);
+      const index = providers.value.findIndex((provider) => provider.id === input.id);
+      if (index < 0) return false;
+      providers.value[index] = updated;
+      return true;
+    });
+    pendingProviderUpdate = operation;
+    try {
+      return await operation;
+    } finally {
+      if (pendingProviderUpdate === operation) pendingProviderUpdate = undefined;
+    }
   }
   async function removeProvider(providerId: string) { await deleteProvider(providerId); providers.value = providers.value.filter((provider) => provider.id !== providerId); if (selectedProviderId.value === providerId) selectedProviderId.value = ""; }
   async function reorderProvidersLocally(from: number, to: number) {
@@ -70,7 +85,12 @@ export const useDashboardStore = defineStore("dashboard", () => {
   async function addKey(input: { providerId: string; remark: string; value: string }) { const key = await createApiKey(input); const provider = providers.value.find((p) => p.id === input.providerId); if (provider) provider.keys.push(key); }
   async function replaceKey(providerId: string, input: { id: string; remark: string; value: string }) { const updated = await updateApiKey(input); const provider = providers.value.find((p) => p.id === providerId); const index = provider?.keys.findIndex((key) => key.id === input.id) ?? -1; if (provider && index >= 0) provider.keys[index] = updated; }
   async function deleteKey(providerId: string, keyId: string) { await deleteApiKey(keyId); const provider = providers.value.find((p) => p.id === providerId); if (provider) provider.keys = provider.keys.filter((key) => key.id !== keyId); }
-  async function checkKeys(providerId: string) {
+  function runKeyCheck<T>(check: () => Promise<T>) {
+    const operation = pendingProviderUpdate ? pendingProviderUpdate.then(check, check) : check();
+    activeKeyChecks.add(operation);
+    return operation.finally(() => { activeKeyChecks.delete(operation); });
+  }
+  async function checkProvider(providerId: string) {
     const provider = providers.value.find((item) => item.id === providerId);
     const previousStatuses = provider?.keys.map((key) => key.status) ?? [];
     if (provider) provider.keys.forEach((key) => { key.status = "checking"; });
@@ -98,5 +118,11 @@ export const useDashboardStore = defineStore("dashboard", () => {
       throw error;
     }
   }
-  return { providers, summary, selectedProviderId, selectedProvider, loading, loadError, sorting, load, addBuiltinProvider, addCustomProvider, updateProviderConfiguration, removeProvider, reorderProviders: reorderProvidersLocally, addKey, replaceKey, deleteKey, checkKey, checkKeys };
+  return {
+    providers, summary, selectedProviderId, selectedProvider, loading, loadError, sorting, load,
+    addBuiltinProvider, addCustomProvider, updateProviderConfiguration, removeProvider,
+    reorderProviders: reorderProvidersLocally, addKey, replaceKey, deleteKey,
+    checkKey: (providerId: string, keyId: string) => runKeyCheck(() => checkKey(providerId, keyId)),
+    checkKeys: (providerId: string) => runKeyCheck(() => checkProvider(providerId)),
+  };
 });
