@@ -212,7 +212,8 @@ const zhCN = {
     customTitle: "新增自定义供应商",
     customDescription: "配置供应商名称、接口地址和可选头像。",
     editTitle: "供应商配置",
-    editDescription: "修改供应商名称、平台管理地址和 Key 检测方式。",
+    editDescription: "修改供应商名称和平台管理地址。",
+    editCustomDescription: "修改供应商图标、名称、平台管理地址和 Key 检测方式。",
     validation: {
       title: "Key 检测",
       mode: "检测方式",
@@ -308,6 +309,7 @@ const zhCN = {
     providerNotFound: "未找到供应商",
     providerOrderInvalid: "供应商排序数据不完整",
     providerValidationInvalid: "供应商 Key 检测配置无效",
+    providerLogoInvalid: "供应商图标无效，请选择不超过 2MB 的 PNG、JPG 或 WebP 图片",
     apiKeyRequired: "API Key 不能为空",
     apiKeyNotFound: "未找到 API Key",
     clipboardWriteFailed: "无法写入剪贴板",

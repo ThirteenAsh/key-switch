@@ -8,13 +8,15 @@ import CustomProviderDialog from "../components/CustomProviderDialog.vue";
 import ProviderEditDialog from "../components/ProviderEditDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import { useDashboardStore } from "../stores/dashboard";
-import type { ProviderSummary, ProviderValidation } from "../types/domain";
+import type { ProviderSummary, ProviderValidation, UpdateProviderInput } from "../types/domain";
 import { translateAppError } from "../i18n/errors";
 
 const store = useDashboardStore();
 const { t } = useI18n();
 const selectedProvider = ref<ProviderSummary | null>(null);
 const editDialogOpen = ref(false);
+const savingProvider = ref(false);
+const providerSaveError = ref("");
 const customDialogOpen = ref(false);
 const notice = ref("");
 const deleteTarget = ref<ProviderSummary | null>(null);
@@ -27,6 +29,7 @@ const deleteMessage = computed(() => {
 });
 
 function openProviderConfiguration(provider: ProviderSummary) {
+  providerSaveError.value = "";
   selectedProvider.value = provider;
   editDialogOpen.value = true;
 }
@@ -48,10 +51,13 @@ async function addCustomProvider(payload: { name: string; platformUrl: string; l
   }
 }
 
-async function saveProviderConfiguration(payload: { id: string; name: string; platformUrl: string; validation: ProviderValidation }) {
+async function saveProviderConfiguration(input: UpdateProviderInput) {
+  if (savingProvider.value) return;
+  savingProvider.value = true;
+  providerSaveError.value = "";
   try {
-    if (!await store.updateProviderConfiguration(payload.id, payload.name, payload.platformUrl, payload.validation)) {
-      notice.value = t("providers.notices.saveFailed");
+    if (!await store.updateProviderConfiguration(input)) {
+      providerSaveError.value = t("providers.notices.saveFailed");
       return;
     }
 
@@ -61,7 +67,9 @@ async function saveProviderConfiguration(payload: { id: string; name: string; pl
       notice.value = "";
     }, 2800);
   } catch (error) {
-    notice.value = translateAppError(error, "providers.notices.saveFailed");
+    providerSaveError.value = translateAppError(error, "providers.notices.saveFailed");
+  } finally {
+    savingProvider.value = false;
   }
 }
 
@@ -119,6 +127,8 @@ async function deleteProvider() {
     <ProviderEditDialog
       :open="editDialogOpen"
       :provider="selectedProvider"
+      :saving="savingProvider"
+      :save-error="providerSaveError"
       @close="editDialogOpen = false"
       @save="saveProviderConfiguration"
     />

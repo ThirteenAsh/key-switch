@@ -49,7 +49,7 @@ Changes to frontend/backend contracts, the settings file, or security-sensitive 
 
 ### Versioning and releases
 
-The current application version is `1.1.1`. Version changes must update `package.json`, root package versions in `package-lock.json`, `src-tauri/Cargo.toml`, the application entry in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json` including the Windows WiX version, all four README badges, and the default release workflow tag.
+The current application version is `1.1.2`. Version changes must update `package.json`, root package versions in `package-lock.json`, `src-tauri/Cargo.toml`, the application entry in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json` including the Windows WiX version, all four README badges, and the default release workflow tag.
 
 UI fallback versions come from `package.json`; Rust request headers use `CARGO_PKG_VERSION` instead of separate version strings. The running desktop version still comes from Tauri.
 
@@ -79,6 +79,7 @@ The frontend owns presentation, interaction, and non-sensitive state. Sensitive 
 - Provider selection lives only in the current Pinia session, without new data files or settings fields. The sidebar has no provider search and always shows the full list. The first provider is the default and the fallback when the selected provider is deleted. Key search terms live only in the page component.
 - Sidebar ordering reuses pointer capture, the 4px activation threshold, and FLIP drop animations. The drag handle also supports `Alt + ↑ / ↓`; reduced motion skips drop animations.
 - Ordering uses the existing `reorder_providers` command with the complete ID list. Further reordering is disabled while saving; failures restore the previous order and display a translated error.
+- The provider configuration dialog supports previewing, replacing, and removing custom provider icons. It accepts PNG, JPG, and WebP images up to 2 MB. Removing an icon restores the default, and a successful save updates the list. Configuration saves wait for any ongoing key checks to finish.
 - `/settings` redirects to `/settings/general`. Existing settings are grouped into General (language, appearance), Data & logs (storage directory, logs), and About (version, repository, updates), at `/settings/general`, `/settings/data`, and `/settings/about`. Back returns to the main page.
 - Version and update installation status appear at the bottom of the sidebar. Settings continue using the existing Store queue and unchanged settings/business data files. Update commands add a connection mode and operation ID scoped to the current operation.
 - Settings category pages share the main page heading height, text and icon sizes, with compact controls. Bottom sidebar navigation wraps when space is limited and preserves full labels in every language.
@@ -93,6 +94,8 @@ Runtime data is stored in Tauri's per-user application data directory:
 | Application settings | `settings.json` | Non-sensitive preferences only |
 | Complete API Keys | System credential store | Never written to JSON |
 | Application logs | `logs/` | Must not contain complete keys or credentials |
+
+Provider and key metadata is written to a temporary file in the same directory and synced to disk before atomically replacing the data file.
 
 Current settings file example:
 
@@ -173,6 +176,7 @@ Development rules:
 - Call `invoke` through `src/api/app.ts`; do not scatter command strings across page components.
 - Define native commands with `#[tauri::command]` and register them in `tauri::generate_handler!` in `src-tauri/src/lib.rs`.
 - Keep command arguments and return types synchronized between Rust and TypeScript.
+- `update_provider` updates the existing `logo` field through the optional `logoUpdate` parameter. Omitting it keeps the current icon. The `replace` action supplies an image Data URL, and `remove` restores the default icon. Rust applies these actions to custom providers and checks the image type and size. Icon-only edits preserve existing key-check statuses.
 - Rust exposes only stable, non-sensitive error codes to the UI; raw internal errors must not be displayed to users.
 - `src/i18n/errors.ts` maps error codes to translated messages.
 - Business logic must never determine state by matching Chinese or English error text.

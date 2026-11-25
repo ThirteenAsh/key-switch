@@ -87,6 +87,37 @@ test("加载失败可重试，重载保留仍存在的选中供应商", async ()
   assert.equal(store.selectedProvider.id, "b");
 });
 
+test("供应商图标等待 Key 检测完成，保存失败保留原图标", async () => {
+  const checking = deferred();
+  const error = { code: "DATA_SAVE_FAILED" };
+  const calls = [];
+  const original = { ...provider("a"), logo: "original" };
+  const store = await dashboard({
+    checkProviderKeys: () => checking.promise,
+    updateProvider: async (input) => {
+      calls.push(input);
+      if (calls.length === 1) throw error;
+      return { ...original, logo: null };
+    },
+  });
+  store.providers = [original];
+
+  const check = store.checkKeys("a");
+  const input = { id: "a", name: "a", validation: { mode: "none" }, logoUpdate: { action: "remove" } };
+  const failedSave = store.updateProviderConfiguration(input);
+  await Promise.resolve();
+  assert.deepEqual(calls, []);
+  assert.equal(store.selectedProvider.logo, "original");
+
+  checking.resolve([]);
+  await check;
+  await assert.rejects(failedSave, (caught) => caught === error);
+  assert.equal(store.selectedProvider.logo, "original");
+  assert.equal(await store.updateProviderConfiguration(input), true);
+  assert.deepEqual(calls, [input, input]);
+  assert.equal(store.selectedProvider.logo, null);
+});
+
 test("排序保存完整列表、阻止重复提交并保留当前供应商", async () => {
   const saving = deferred();
   const calls = [];

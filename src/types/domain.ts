@@ -28,12 +28,20 @@ export interface ProviderSummary {
   name: string;
   abbreviation: string;
   tone: "blue" | "violet" | "orange" | "indigo" | "gray";
-  logo?: string;
+  logo?: string | null;
   kind: "builtin" | "custom";
   platformUrl?: string;
   validation: ProviderValidation;
   validationSupported: boolean;
   keys: ApiKeySummary[];
+}
+
+export interface UpdateProviderInput {
+  id: string;
+  name: string;
+  platformUrl?: string;
+  validation: ProviderValidation;
+  logoUpdate?: { action: "replace"; dataUrl: string } | { action: "remove" };
 }
 
 export interface BuiltinProviderOption {
